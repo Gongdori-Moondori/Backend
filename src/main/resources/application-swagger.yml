@@ -1,7 +1,0 @@
-springdoc:
-  swagger-ui:
-    path: swagger
-    try-it-out-enabled: true
-    filter: true
-    operations-sorter: alpha
-    display-request-duration: true
