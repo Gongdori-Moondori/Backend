@@ -1,0 +1,14 @@
+spring:
+  application:
+    name: alzi
+
+  profiles:
+    include:
+      - jwt
+      - mysql
+      - oauth2
+      - swagger
+
+server:
+  port: 8080
+
