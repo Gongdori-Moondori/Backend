@@ -37,6 +37,10 @@ public class Item {
 	// 이 물품이 포함된 모든 장보기 기록
 	@OneToMany(mappedBy = "item", cascade = CascadeType.ALL, fetch = FetchType.LAZY)
 	private Set<ShoppingRecord> shoppingRecords;
+	
+	// 이 물품의 시장별 가격 정보
+	@OneToMany(mappedBy = "item", cascade = CascadeType.ALL, fetch = FetchType.LAZY)
+	private Set<ItemPrice> itemPrices;
 
 	@Builder
 	public Item(String name, String category) {

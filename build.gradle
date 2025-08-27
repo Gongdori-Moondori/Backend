@@ -39,6 +39,9 @@ dependencies {
     
     // CSV Processing
     implementation 'com.opencsv:opencsv:5.9'
+    
+    // XML Processing
+    implementation 'com.fasterxml.jackson.dataformat:jackson-dataformat-xml'
 
     // Swagger
     implementation group: 'org.springdoc', name: 'springdoc-openapi-starter-webmvc-ui', version: '2.7.0'

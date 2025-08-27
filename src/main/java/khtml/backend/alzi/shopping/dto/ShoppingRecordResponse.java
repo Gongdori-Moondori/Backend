@@ -16,8 +16,7 @@ public class ShoppingRecordResponse {
     private BigDecimal unitPrice;
     private BigDecimal totalPrice;
     private String status;
-    private String memo;
-    
+
     public static ShoppingRecordResponse from(ShoppingRecord record) {
         return ShoppingRecordResponse.builder()
             .id(record.getId())
@@ -27,7 +26,6 @@ public class ShoppingRecordResponse {
             .unitPrice(record.getUnitPrice())
             .totalPrice(record.getPrice())
             .status(record.getStatus().name())
-            .memo(record.getMemo())
             .build();
     }
 }

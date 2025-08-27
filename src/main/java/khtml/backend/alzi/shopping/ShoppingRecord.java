@@ -46,8 +46,6 @@ public class ShoppingRecord {
 	@Column(nullable = false)
 	private PurchaseStatus status; // PLANNED, PURCHASED, CANCELLED
 
-	private String memo; // 메모 (예: "할인 상품", "유통기한 확인")
-
 	@Column(name = "created_at")
 	private LocalDateTime createdAt;
 
@@ -55,13 +53,12 @@ public class ShoppingRecord {
 	private LocalDateTime purchasedAt; // 실제 구매한 시간
 
 	@Builder
-	public ShoppingRecord(ShoppingList shoppingList, Item item, Integer quantity, BigDecimal unitPrice, String memo) {
+	public ShoppingRecord(ShoppingList shoppingList, Item item, Integer quantity, BigDecimal unitPrice) {
 		this.shoppingList = shoppingList;
 		this.item = item;
 		this.quantity = quantity;
 		this.unitPrice = unitPrice;
 		this.price = unitPrice != null ? unitPrice.multiply(BigDecimal.valueOf(quantity)) : null;
-		this.memo = memo;
 		this.status = PurchaseStatus.PLANNED;
 		this.createdAt = LocalDateTime.now();
 	}

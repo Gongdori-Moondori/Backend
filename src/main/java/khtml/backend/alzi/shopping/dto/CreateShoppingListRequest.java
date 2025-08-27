@@ -14,6 +14,5 @@ public class CreateShoppingListRequest {
         private String itemName;
         private String category;
         private Integer quantity;
-        private String memo;
     }
 }

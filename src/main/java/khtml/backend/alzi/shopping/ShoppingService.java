@@ -45,7 +45,6 @@ public class ShoppingService {
 					.shoppingList(savedShoppingList)
 					.item(item)
 					.quantity(itemRequest.getQuantity())
-					.memo(itemRequest.getMemo())
 					.build();
 				
 				shoppingRecordRepository.save(record);
