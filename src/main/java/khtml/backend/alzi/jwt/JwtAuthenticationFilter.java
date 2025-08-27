@@ -35,7 +35,7 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
 	@Override
 	protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response,
 		FilterChain filterChain) throws IOException, ServletException {
-		
+
 		try {
 			// refresh 엔드포인트는 JWT 검증을 건너뛰고 바로 다음 필터로 진행
 			if (isRefreshTokenEndpoint(request)) {
@@ -64,7 +64,7 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
 							userDetails.getAuthorities());
 						authentication.setDetails(new WebAuthenticationDetailsSource().buildDetails(request));
 						SecurityContextHolder.getContext().setAuthentication(authentication);
-						
+
 						log.debug("Successfully authenticated user: {}", userId);
 					}
 				} catch (CustomException e) {
@@ -76,7 +76,7 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
 			// 토큰이 없으면 익명 사용자로 처리 (필터 체인 계속 진행)
 
 			filterChain.doFilter(request, response);
-			
+
 		} catch (Exception e) {
 			log.error("Unexpected error during JWT authentication: {}", e.getMessage(), e);
 			handleAuthenticationError(response, ErrorCode.INTERNAL_SERVER_ERROR, request.getRequestURI());
@@ -100,14 +100,14 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
 		return null;
 	}
 
-	private void handleAuthenticationError(HttpServletResponse response, ErrorCode errorCode, String path) 
-			throws IOException {
+	private void handleAuthenticationError(HttpServletResponse response, ErrorCode errorCode, String path)
+		throws IOException {
 		response.setStatus(errorCode.getStatus().value());
 		response.setContentType("application/json;charset=UTF-8");
-		
+
 		ErrorResponse errorResponse = ErrorResponse.of(errorCode, path);
 		String jsonResponse = objectMapper.writeValueAsString(errorResponse);
-		
+
 		response.getWriter().write(jsonResponse);
 	}
 }

@@ -23,6 +23,18 @@ public class User {
 	@Column(unique = true, nullable = false)
 	private String userId;
 
+	private String name;
+	private String socialProvider;
+	private String socialId;
+	private String email;
+	private String profileImage;
+
 	@Column(nullable = false)
 	private String password;
+
+	public User update(String name, String picture) {
+		this.name = name;
+		this.profileImage = picture;
+		return this;
+	}
 }

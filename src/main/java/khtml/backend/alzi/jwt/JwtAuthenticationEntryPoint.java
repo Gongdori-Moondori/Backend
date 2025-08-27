@@ -34,13 +34,13 @@ public class JwtAuthenticationEntryPoint implements AuthenticationEntryPoint {
 		ErrorCode errorCode;
 		
 		if (authorization == null || authorization.trim().isEmpty()) {
-			errorCode = ErrorCode.MISSING_TOKEN;
+			errorCode = ErrorCode.INVALID_JWT_TOKEN;
 			log.warn("No Authorization header provided");
 		} else if (!authorization.startsWith("Bearer ")) {
-			errorCode = ErrorCode.INVALID_TOKEN;
+			errorCode = ErrorCode.INVALID_JWT_TOKEN;
 			log.warn("Invalid Authorization header format: {}", authorization.substring(0, Math.min(authorization.length(), 10)) + "...");
 		} else {
-			errorCode = ErrorCode.INVALID_TOKEN;
+			errorCode = ErrorCode.INVALID_JWT_TOKEN;
 			log.warn("Invalid or expired token");
 		}
 

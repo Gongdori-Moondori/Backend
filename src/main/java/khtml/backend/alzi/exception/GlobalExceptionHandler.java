@@ -41,7 +41,7 @@ public class GlobalExceptionHandler {
 	@ExceptionHandler(AuthenticationException.class)
 	public ResponseEntity<ErrorResponse> handleAuthenticationException(AuthenticationException e, WebRequest request) {
 		log.error("AuthenticationException: {}", e.getMessage(), e);
-		ErrorResponse response = ErrorResponse.of(ErrorCode.INVALID_CREDENTIALS, request.getDescription(false));
+		ErrorResponse response = ErrorResponse.of(ErrorCode.INVALID_REQUEST, request.getDescription(false));
 		return new ResponseEntity<>(response, HttpStatus.UNAUTHORIZED);
 	}
 
@@ -51,7 +51,7 @@ public class GlobalExceptionHandler {
 	@ExceptionHandler(BadCredentialsException.class)
 	public ResponseEntity<ErrorResponse> handleBadCredentialsException(BadCredentialsException e, WebRequest request) {
 		log.error("BadCredentialsException: {}", e.getMessage(), e);
-		ErrorResponse response = ErrorResponse.of(ErrorCode.INVALID_CREDENTIALS, request.getDescription(false));
+		ErrorResponse response = ErrorResponse.of(ErrorCode.INVALID_REQUEST, request.getDescription(false));
 		return new ResponseEntity<>(response, HttpStatus.UNAUTHORIZED);
 	}
 
@@ -168,7 +168,15 @@ public class GlobalExceptionHandler {
 	 */
 	@ExceptionHandler(Exception.class)
 	public ResponseEntity<ErrorResponse> handleException(Exception e, WebRequest request) {
-		log.error("Exception: {}", e.getMessage(), e);
+		// favicon.ico 요청 오류는 로그에서 제외
+		String requestUri = request.getDescription(false);
+		if (requestUri != null && requestUri.contains("favicon.ico")) {
+			// 파비콘 요청은 로그 레벨을 DEBUG로 낮춰서 출력량 감소
+			log.debug("Favicon request ignored: {}", e.getMessage());
+		} else {
+			log.error("Exception: {}", e.getMessage(), e);
+		}
+		
 		ErrorResponse response = ErrorResponse.of(ErrorCode.INTERNAL_SERVER_ERROR, request.getDescription(false));
 		return new ResponseEntity<>(response, HttpStatus.INTERNAL_SERVER_ERROR);
 	}

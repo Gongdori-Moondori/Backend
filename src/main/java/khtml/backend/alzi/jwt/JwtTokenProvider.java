@@ -74,16 +74,16 @@ public class JwtTokenProvider {
 			return e.getClaims().getSubject();
 		} catch (UnsupportedJwtException e) {
 			log.error("JWT token is unsupported: {}", e.getMessage());
-			throw new CustomException(ErrorCode.INVALID_TOKEN);
+			throw new CustomException(ErrorCode.INVALID_JWT_TOKEN);
 		} catch (MalformedJwtException e) {
 			log.error("JWT token is malformed: {}", e.getMessage());
-			throw new CustomException(ErrorCode.INVALID_TOKEN);
+			throw new CustomException(ErrorCode.INVALID_JWT_TOKEN);
 		} catch (SignatureException e) {
 			log.error("JWT signature does not match: {}", e.getMessage());
-			throw new CustomException(ErrorCode.INVALID_TOKEN);
+			throw new CustomException(ErrorCode.INVALID_JWT_TOKEN);
 		} catch (IllegalArgumentException e) {
 			log.error("JWT token compact of handler are invalid: {}", e.getMessage());
-			throw new CustomException(ErrorCode.INVALID_TOKEN);
+			throw new CustomException(ErrorCode.INVALID_JWT_TOKEN);
 		}
 	}
 
@@ -97,19 +97,19 @@ public class JwtTokenProvider {
 			return claims.getSubject();
 		} catch (ExpiredJwtException e) {
 			log.error("JWT token is expired: {}", e.getMessage());
-			throw new CustomException(ErrorCode.EXPIRED_TOKEN);
+			throw new CustomException(ErrorCode.EXPIRED_JWT_TOKEN);
 		} catch (UnsupportedJwtException e) {
 			log.error("JWT token is unsupported: {}", e.getMessage());
-			throw new CustomException(ErrorCode.INVALID_TOKEN);
+			throw new CustomException(ErrorCode.INVALID_JWT_TOKEN);
 		} catch (MalformedJwtException e) {
 			log.error("JWT token is malformed: {}", e.getMessage());
-			throw new CustomException(ErrorCode.INVALID_TOKEN);
+			throw new CustomException(ErrorCode.INVALID_JWT_TOKEN);
 		} catch (SignatureException e) {
 			log.error("JWT signature does not match: {}", e.getMessage());
-			throw new CustomException(ErrorCode.INVALID_TOKEN);
+			throw new CustomException(ErrorCode.INVALID_JWT_TOKEN);
 		} catch (IllegalArgumentException e) {
 			log.error("JWT token compact of handler are invalid: {}", e.getMessage());
-			throw new CustomException(ErrorCode.INVALID_TOKEN);
+			throw new CustomException(ErrorCode.INVALID_JWT_TOKEN);
 		}
 	}
 
@@ -119,19 +119,19 @@ public class JwtTokenProvider {
 			return true;
 		} catch (ExpiredJwtException e) {
 			log.error("JWT token is expired: {}", e.getMessage());
-			throw new CustomException(ErrorCode.EXPIRED_TOKEN);
+			throw new CustomException(ErrorCode.EXPIRED_JWT_TOKEN);
 		} catch (UnsupportedJwtException e) {
 			log.error("JWT token is unsupported: {}", e.getMessage());
-			throw new CustomException(ErrorCode.INVALID_TOKEN);
+			throw new CustomException(ErrorCode.INVALID_JWT_TOKEN);
 		} catch (MalformedJwtException e) {
 			log.error("JWT token is malformed: {}", e.getMessage());
-			throw new CustomException(ErrorCode.INVALID_TOKEN);
+			throw new CustomException(ErrorCode.INVALID_JWT_TOKEN);
 		} catch (SignatureException e) {
 			log.error("JWT signature does not match: {}", e.getMessage());
-			throw new CustomException(ErrorCode.INVALID_TOKEN);
+			throw new CustomException(ErrorCode.INVALID_JWT_TOKEN);
 		} catch (IllegalArgumentException e) {
 			log.error("JWT token compact of handler are invalid: {}", e.getMessage());
-			throw new CustomException(ErrorCode.INVALID_TOKEN);
+			throw new CustomException(ErrorCode.INVALID_JWT_TOKEN);
 		}
 	}
 

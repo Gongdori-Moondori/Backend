@@ -28,56 +28,66 @@ import khtml.backend.alzi.exception.ErrorCode;
 import khtml.backend.alzi.exception.ErrorResponse;
 import khtml.backend.alzi.jwt.JwtAuthenticationEntryPoint;
 import khtml.backend.alzi.jwt.JwtAuthenticationFilter;
+import khtml.backend.alzi.jwt.OAuth2AuthenticationFailureHandler;
+import khtml.backend.alzi.jwt.OAuth2AuthenticationSuccessHandler;
+import khtml.backend.alzi.jwt.user.CustomOAuth2UserService;
+import lombok.RequiredArgsConstructor;
 
 @Configuration
 @EnableWebSecurity
+@RequiredArgsConstructor
 public class SecurityConfig {
 
-	private final JwtAuthenticationEntryPoint unauthorizedHandler;
 	private final JwtAuthenticationFilter jwtAuthenticationFilter;
-	private final ObjectMapper objectMapper = new ObjectMapper();
-
-	public SecurityConfig(JwtAuthenticationEntryPoint unauthorizedHandler,
-		JwtAuthenticationFilter jwtAuthenticationFilter) {
-		this.unauthorizedHandler = unauthorizedHandler;
-		this.jwtAuthenticationFilter = jwtAuthenticationFilter;
-	}
+	private final CustomOAuth2UserService customOAuth2UserService;
+	private final OAuth2AuthenticationSuccessHandler oAuth2AuthenticationSuccessHandler;
+	private final OAuth2AuthenticationFailureHandler oAuth2AuthenticationFailureHandler;
+	private final CustomAuthenticationEntryPoint customAuthenticationEntryPoint;
+	private final CustomAccessDeniedHandler customAccessDeniedHandler;
 
 	@Bean
 	public SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
 		http
 			.cors(cors -> cors.configurationSource(corsConfigurationSource()))  // CORS 설정 추가
-			.csrf(AbstractHttpConfigurer::disable)
+			.csrf(csrf -> csrf
+				.ignoringRequestMatchers("/h2-console/**") // H2 콘솔은 CSRF 비활성화
+				.disable()
+			)
+			.headers(headers -> headers
+				.frameOptions(frameOptions -> frameOptions
+					.sameOrigin() // H2 콘솔을 위해 프레임 허용
+				)
+			)
 			.sessionManagement(
 				sessionManagement -> sessionManagement.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
-			.exceptionHandling(exceptionHandling ->
-				exceptionHandling
-					.authenticationEntryPoint(unauthorizedHandler)
-					.accessDeniedHandler(accessDeniedHandler())
-			)
 			.authorizeHttpRequests(authorizeRequests -> authorizeRequests
+				.requestMatchers("/", "/error", "/login", "/health").permitAll()
+				.requestMatchers("/favicon.ico", "/css/**", "/js/**", "/images/**", "/static/**").permitAll() // 정적 리소스
+				.requestMatchers("/h2-console/**").permitAll() // H2 데이터베이스 콘솔
+				.requestMatchers("/oauth2/**", "/login/**").permitAll()
+				.requestMatchers("/api/auth/**").permitAll() // 인증 관련 API
+				.requestMatchers("/v3/api-docs/**", "/swagger-ui/**", "/swagger-ui.html", "/swagger/**").permitAll()
+				.requestMatchers("/api-docs/**").permitAll() // API 문서
 				.requestMatchers("/api/**").permitAll()
 				.anyRequest().authenticated()
-			);
-
-		http.addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class);
+			)
+			// 커스텀 예외 처리 핸들러 설정
+			.exceptionHandling(exceptions -> exceptions
+				.authenticationEntryPoint(customAuthenticationEntryPoint) // 인증 실패 시
+				.accessDeniedHandler(customAccessDeniedHandler) // 권한 부족 시
+			)
+			.logout(logout -> logout.logoutSuccessUrl("/")) //로그아웃 시 리다이렉트될 URL을 설정
+			.oauth2Login(oauth2Login -> oauth2Login
+				.defaultSuccessUrl("/")// OAuth 2 로그인 설정 진입점
+				.successHandler(oAuth2AuthenticationSuccessHandler)
+				.failureHandler(oAuth2AuthenticationFailureHandler)
+				.userInfoEndpoint(userInfoEndpoint -> userInfoEndpoint
+					.userService(customOAuth2UserService) // OAuth 2 로그인 성공 이후 사용자 정보를 가져올 때의 설정
+				)
+			)
+			.addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class);
 
 		return http.build();
-	}
-
-	@Bean
-	public AccessDeniedHandler accessDeniedHandler() {
-		return (HttpServletRequest request, HttpServletResponse response,
-			org.springframework.security.access.AccessDeniedException accessDeniedException) -> {
-
-			response.setStatus(ErrorCode.ACCESS_DENIED.getStatus().value());
-			response.setContentType("application/json;charset=UTF-8");
-
-			ErrorResponse errorResponse = ErrorResponse.of(ErrorCode.ACCESS_DENIED, request.getRequestURI());
-			String jsonResponse = objectMapper.writeValueAsString(errorResponse);
-
-			response.getWriter().write(jsonResponse);
-		};
 	}
 
 	@Bean

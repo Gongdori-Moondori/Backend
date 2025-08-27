@@ -41,7 +41,7 @@ public class SecurityUtils {
             if (!(principal instanceof CustomUserDetails)) {
                 log.warn("Principal is not instance of CustomUserDetails: {}", 
                     principal != null ? principal.getClass().getSimpleName() : "null");
-                throw new CustomException(ErrorCode.INVALID_TOKEN);
+                throw new CustomException(ErrorCode.INVALID_JWT_TOKEN);
             }
 
             CustomUserDetails userDetails = (CustomUserDetails) principal;
@@ -49,7 +49,7 @@ public class SecurityUtils {
             
             if (user == null) {
                 log.warn("User is null in CustomUserDetails");
-                throw new CustomException(ErrorCode.INVALID_TOKEN);
+                throw new CustomException(ErrorCode.INVALID_JWT_TOKEN);
             }
             
             return user;
@@ -58,7 +58,7 @@ public class SecurityUtils {
             throw e;
         } catch (Exception e) {
             log.error("Unexpected error in getCurrentUser: {}", e.getMessage(), e);
-            throw new CustomException(ErrorCode.INVALID_TOKEN);
+            throw new CustomException(ErrorCode.INVALID_JWT_TOKEN);
         }
     }
 
