@@ -28,17 +28,12 @@ public class ShoppingList {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
     
-    @Column(nullable = false)
-    private String title; // 장보기 리스트 제목 (예: "주간 장보기", "파티 준비")
-    
-    private String description; // 설명
-    
     @Enumerated(EnumType.STRING)
     @Column(nullable = false)
     private ShoppingListStatus status; // PLANNED, IN_PROGRESS, COMPLETED
     
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "user", nullable = false)
+    @JoinColumn(name = "user_id", nullable = false)
     private User user; // 장보기 리스트 소유자
     
     @Column(name = "created_at")
@@ -47,20 +42,14 @@ public class ShoppingList {
     @Column(name = "updated_at") 
     private LocalDateTime updatedAt;
     
-    @Column(name = "shopping_date")
-    private LocalDateTime shoppingDate; // 실제 장본 날짜
-    
     // 이 리스트에 포함된 모든 쇼핑 기록
     @OneToMany(mappedBy = "shoppingList", cascade = CascadeType.ALL, fetch = FetchType.LAZY)
     private List<ShoppingRecord> shoppingRecords;
     
     @Builder
-    public ShoppingList(String title, String description, User user, LocalDateTime shoppingDate) {
-        this.title = title;
-        this.description = description;
+    public ShoppingList(User user) {
         this.user = user;
         this.status = ShoppingListStatus.PLANNED;
-        this.shoppingDate = shoppingDate;
         this.createdAt = LocalDateTime.now();
         this.updatedAt = LocalDateTime.now();
     }
@@ -68,10 +57,6 @@ public class ShoppingList {
     public void updateStatus(ShoppingListStatus status) {
         this.status = status;
         this.updatedAt = LocalDateTime.now();
-        
-        if (status == ShoppingListStatus.COMPLETED && this.shoppingDate == null) {
-            this.shoppingDate = LocalDateTime.now();
-        }
     }
     
     public enum ShoppingListStatus {

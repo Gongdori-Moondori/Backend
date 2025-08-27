@@ -12,6 +12,8 @@ import org.springframework.data.repository.query.Param;
 public interface ItemRepository extends JpaRepository<Item, Long> {
     
     Optional<Item> findByName(String name);
+
+    boolean existsItemByName(String name);
     
     List<Item> findByNameContainingIgnoreCase(String name);
     
@@ -24,17 +26,17 @@ public interface ItemRepository extends JpaRepository<Item, Long> {
     @Query("SELECT i FROM Item i " +
            "JOIN i.shoppingRecords sr " +
            "JOIN sr.shoppingList sl " +
-           "WHERE sl.user.id = :userId " +
+           "WHERE sl.user.userId = :userId " +
            "AND sr.status = 'PURCHASED' " +
            "GROUP BY i " +
            "ORDER BY COUNT(sr) DESC")
-    Page<Item> findMostPurchasedItemsByUser(@Param("userId") Long userId, Pageable pageable);
+    Page<Item> findMostPurchasedItemsByUser(@Param("userId") String userId, Pageable pageable);
     
     // 특정 아이템의 사용자별 구매 횟수
     @Query("SELECT COUNT(sr) FROM ShoppingRecord sr " +
            "JOIN sr.shoppingList sl " +
            "WHERE sr.item.id = :itemId " +
-           "AND sl.user.id = :userId " +
+           "AND sl.user.userId = :userId " +
            "AND sr.status = 'PURCHASED'")
-    Long countPurchasesByUserAndItem(@Param("userId") Long userId, @Param("itemId") Long itemId);
+    Long countPurchasesByUserAndItem(@Param("userId") String userId, @Param("itemId") Long itemId);
 }

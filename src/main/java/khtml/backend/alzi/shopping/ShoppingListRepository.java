@@ -2,6 +2,7 @@ package khtml.backend.alzi.shopping;
 
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Optional;
 
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
@@ -9,21 +10,16 @@ import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
+import khtml.backend.alzi.auth.user.User;
+
 public interface ShoppingListRepository extends JpaRepository<ShoppingList, Long> {
-    @Query("SELECT sl FROM ShoppingList sl WHERE sl.user.userId = :userId " +
-           "AND sl.shoppingDate BETWEEN :startDate AND :endDate " +
-           "ORDER BY sl.shoppingDate DESC")
-    List<ShoppingList> findByUserIdAndShoppingDateBetween(
-        @Param("userId") Long userId, 
-        @Param("startDate") LocalDateTime startDate, 
-        @Param("endDate") LocalDateTime endDate
-    );
     
-    // 월별 쇼핑 리스트 통계
-    @Query("SELECT COUNT(sl) FROM ShoppingList sl WHERE sl.user.userId = :userId " +
-           "AND YEAR(sl.shoppingDate) = :year AND MONTH(sl.shoppingDate) = :month " +
-           "AND sl.status = 'COMPLETED'")
-    Long countCompletedShoppingListsByMonth(@Param("userId") Long userId, 
-                                           @Param("year") int year, 
-                                           @Param("month") int month);
+    // 사용자별 장보기 리스트 조회 (최신순)
+    List<ShoppingList> findByUserOrderByCreatedAtDesc(User user);
+    
+    // 특정 사용자의 특정 장보기 리스트 조회
+    Optional<ShoppingList> findByIdAndUser(Long id, User user);
+    
+    // 사용자별 상태별 장보기 리스트 조회
+    List<ShoppingList> findByUserAndStatusOrderByCreatedAtDesc(User user, ShoppingList.ShoppingListStatus status);
 }

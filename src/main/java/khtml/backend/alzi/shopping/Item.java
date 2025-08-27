@@ -28,8 +28,6 @@ public class Item {
 
 	private String category; // 카테고리 (예: "과일", "유제품", "채소")
 
-	private String description; // 상세 설명
-
 	@Column(name = "created_at")
 	private LocalDateTime createdAt;
 
@@ -41,17 +39,15 @@ public class Item {
 	private Set<ShoppingRecord> shoppingRecords;
 
 	@Builder
-	public Item(String name, String category, String description) {
+	public Item(String name, String category) {
 		this.name = name;
 		this.category = category;
-		this.description = description;
 		this.createdAt = LocalDateTime.now();
 		this.updatedAt = LocalDateTime.now();
 	}
 
-	public void updateInfo(String category, String description) {
+	public void updateInfo(String category) {
 		this.category = category;
-		this.description = description;
 		this.updatedAt = LocalDateTime.now();
 	}
 }
