@@ -18,6 +18,7 @@ public enum ErrorCode {
 	INVALID_FILE_FORMAT(HttpStatus.BAD_REQUEST, "FILE002", "지원하지 않는 파일 형식입니다."),
 	FILE_SIZE_EXCEEDED(HttpStatus.BAD_REQUEST, "FILE003", "파일 크기가 초과되었습니다."),
 	FILE_NOT_FOUND(HttpStatus.NOT_FOUND, "FILE004", "파일을 찾을 수 없습니다."),
+	FILE_PROCESSING_FAILED(HttpStatus.INTERNAL_SERVER_ERROR, "FILE005", "파일 처리 중 오류가 발생했습니다."),
 
 	// 인증/인가 에러
 	UNAUTHORIZED(HttpStatus.UNAUTHORIZED, "AUTH_001", "인증이 필요합니다."),

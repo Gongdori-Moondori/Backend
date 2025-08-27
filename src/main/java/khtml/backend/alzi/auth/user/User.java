@@ -1,4 +1,4 @@
-package khtml.backend.alzi.jwt.user;
+package khtml.backend.alzi.auth.user;
 
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
@@ -17,12 +17,8 @@ import lombok.NoArgsConstructor;
 @Data
 public class User {
 	@Id
-	@GeneratedValue(strategy = GenerationType.IDENTITY)
-	private Long id;
-
 	@Column(unique = true, nullable = false)
 	private String userId;
-
 	private String name;
 	private String socialProvider;
 	private String socialId;

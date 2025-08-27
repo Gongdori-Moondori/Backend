@@ -1,4 +1,4 @@
-package khtml.backend.alzi.auth;
+package khtml.backend.alzi.auth.dto.request;
 
 import lombok.Data;
 

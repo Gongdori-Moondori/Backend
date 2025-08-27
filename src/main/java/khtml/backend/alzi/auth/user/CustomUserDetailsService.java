@@ -1,4 +1,4 @@
-package khtml.backend.alzi.jwt.user;
+package khtml.backend.alzi.auth.user;
 
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.security.core.userdetails.UserDetailsService;

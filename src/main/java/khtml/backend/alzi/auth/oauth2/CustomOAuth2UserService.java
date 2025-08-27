@@ -1,4 +1,4 @@
-package khtml.backend.alzi.jwt.user;
+package khtml.backend.alzi.auth.oauth2;
 
 import java.util.Collections;
 
@@ -13,7 +13,9 @@ import org.springframework.stereotype.Service;
 
 import jakarta.servlet.http.HttpSession;
 import jakarta.transaction.Transactional;
-import khtml.backend.alzi.jwt.OAuthAttributes;
+import khtml.backend.alzi.auth.user.User;
+import khtml.backend.alzi.auth.user.UserDTO;
+import khtml.backend.alzi.auth.user.UserRepository;
 import lombok.RequiredArgsConstructor;
 
 @RequiredArgsConstructor
@@ -50,7 +52,7 @@ public class CustomOAuth2UserService implements OAuth2UserService<OAuth2UserRequ
 		System.out.println("파싱된 attributes - name: " + attributes.getName() + ", email: " + attributes.getEmail());
 
 		User userEntity = saveOrUpdate(attributes);
-		System.out.println("최종 사용자 엔티티 - ID: " + userEntity.getId() + ", Email: " + userEntity.getEmail());
+		System.out.println("최종 사용자 엔티티 - ID: " + userEntity.getUserId() + ", Email: " + userEntity.getEmail());
 
 		// UserEntity 클래스를 사용하지 않고 SessionUser클래스를 사용하는 이유는 오류 방지.
 		httpSession.setAttribute("user", new UserDTO(userEntity)); // UserDTO : 세션에 사용자 정보를 저장하기 위한 Dto 클래스
@@ -71,7 +73,7 @@ public class CustomOAuth2UserService implements OAuth2UserService<OAuth2UserRequ
 		User userEntity = userRepository.findBySocialProviderAndSocialId(attributes.getSocialProvider(),
 				attributes.getSocialId())
 			.map(entity -> {
-				System.out.println("기존 사용자 발견 - ID: " + entity.getId() + ", Email: " + entity.getEmail());
+				System.out.println("기존 사용자 발견 - ID: " + entity.getUserId() + ", Email: " + entity.getEmail());
 				return entity.update(attributes.getName(), attributes.getProfileImage());
 			})
 			.orElseGet(() -> {
@@ -80,7 +82,7 @@ public class CustomOAuth2UserService implements OAuth2UserService<OAuth2UserRequ
 			});
 
 		User savedUser = userRepository.save(userEntity);
-		System.out.println("저장된 사용자 - ID: " + savedUser.getId() + ", Email: " + savedUser.getEmail());
+		System.out.println("저장된 사용자 - ID: " + savedUser.getUserId() + ", Email: " + savedUser.getEmail());
 
 		return savedUser;
 	}

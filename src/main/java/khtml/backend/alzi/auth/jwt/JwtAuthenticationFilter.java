@@ -1,4 +1,4 @@
-package khtml.backend.alzi.jwt;
+package khtml.backend.alzi.auth.jwt;
 
 import java.io.IOException;
 
@@ -17,9 +17,9 @@ import jakarta.servlet.http.HttpServletResponse;
 import khtml.backend.alzi.exception.CustomException;
 import khtml.backend.alzi.exception.ErrorCode;
 import khtml.backend.alzi.exception.ErrorResponse;
-import khtml.backend.alzi.jwt.user.CustomUserDetails;
-import khtml.backend.alzi.jwt.user.CustomUserDetailsService;
-import khtml.backend.alzi.jwt.user.User;
+import khtml.backend.alzi.auth.user.CustomUserDetails;
+import khtml.backend.alzi.auth.user.CustomUserDetailsService;
+import khtml.backend.alzi.auth.user.User;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 

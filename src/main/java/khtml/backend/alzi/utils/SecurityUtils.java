@@ -6,8 +6,8 @@ import org.springframework.stereotype.Component;
 
 import khtml.backend.alzi.exception.CustomException;
 import khtml.backend.alzi.exception.ErrorCode;
-import khtml.backend.alzi.jwt.user.CustomUserDetails;
-import khtml.backend.alzi.jwt.user.User;
+import khtml.backend.alzi.auth.user.CustomUserDetails;
+import khtml.backend.alzi.auth.user.User;
 import lombok.extern.slf4j.Slf4j;
 
 @Slf4j
@@ -63,13 +63,6 @@ public class SecurityUtils {
     }
 
     /**
-     * 현재 인증된 사용자의 ID를 가져옵니다.
-     */
-    public static Long getCurrentUserId() {
-        return getCurrentUser().getId();
-    }
-
-    /**
      * 현재 인증된 사용자의 userId를 가져옵니다.
      */
     public static String getCurrentUserIdString() {
@@ -79,8 +72,8 @@ public class SecurityUtils {
     /**
      * 현재 사용자가 특정 리소스에 대한 권한이 있는지 확인합니다.
      */
-    public static void validateUserAccess(Long resourceUserId) {
-        Long currentUserId = getCurrentUserId();
+    public static void validateUserAccess(String resourceUserId) {
+        String currentUserId = getCurrentUserIdString();
         if (!currentUserId.equals(resourceUserId)) {
             throw new CustomException(ErrorCode.ACCESS_DENIED);
         }
@@ -122,10 +115,10 @@ public class SecurityUtils {
     /**
      * 현재 사용자의 ID를 안전하게 가져옵니다. (예외 없이)
      */
-    public static Long getCurrentUserIdSafely() {
+    public static String getCurrentUserIdSafely() {
         try {
             User user = getCurrentUser();
-            return user != null ? user.getId() : null;
+            return user != null ? user.getUserId() : null;
         } catch (CustomException e) {
             return null;
         }

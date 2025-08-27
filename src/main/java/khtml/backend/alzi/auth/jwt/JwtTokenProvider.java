@@ -1,4 +1,4 @@
-package khtml.backend.alzi.jwt;
+package khtml.backend.alzi.auth.jwt;
 
 import java.util.Date;
 
@@ -14,7 +14,7 @@ import io.jsonwebtoken.SignatureException;
 import io.jsonwebtoken.UnsupportedJwtException;
 import khtml.backend.alzi.exception.CustomException;
 import khtml.backend.alzi.exception.ErrorCode;
-import khtml.backend.alzi.jwt.user.User;
+import khtml.backend.alzi.auth.user.User;
 import lombok.extern.slf4j.Slf4j;
 
 @Slf4j

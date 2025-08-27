@@ -8,29 +8,22 @@ import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.config.annotation.authentication.configuration.AuthenticationConfiguration;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
-import org.springframework.security.config.annotation.web.configurers.AbstractHttpConfigurer;
 import org.springframework.security.config.http.SessionCreationPolicy;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.web.SecurityFilterChain;
-import org.springframework.security.web.access.AccessDeniedHandler;
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
 import org.springframework.web.client.RestTemplate;
 import org.springframework.web.cors.CorsConfiguration;
 import org.springframework.web.cors.CorsConfigurationSource;
 import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
-
-import jakarta.servlet.http.HttpServletRequest;
-import jakarta.servlet.http.HttpServletResponse;
-import khtml.backend.alzi.exception.ErrorCode;
-import khtml.backend.alzi.exception.ErrorResponse;
-import khtml.backend.alzi.jwt.JwtAuthenticationEntryPoint;
-import khtml.backend.alzi.jwt.JwtAuthenticationFilter;
-import khtml.backend.alzi.jwt.OAuth2AuthenticationFailureHandler;
-import khtml.backend.alzi.jwt.OAuth2AuthenticationSuccessHandler;
-import khtml.backend.alzi.jwt.user.CustomOAuth2UserService;
+import khtml.backend.alzi.auth.jwt.JwtAuthenticationFilter;
+import khtml.backend.alzi.auth.oauth2.OAuth2AuthenticationFailureHandler;
+import khtml.backend.alzi.auth.oauth2.OAuth2AuthenticationSuccessHandler;
+import khtml.backend.alzi.auth.oauth2.CustomOAuth2UserService;
+import khtml.backend.alzi.utils.CustomAccessDeniedHandler;
+import khtml.backend.alzi.utils.CustomAuthenticationEntryPoint;
 import lombok.RequiredArgsConstructor;
 
 @Configuration

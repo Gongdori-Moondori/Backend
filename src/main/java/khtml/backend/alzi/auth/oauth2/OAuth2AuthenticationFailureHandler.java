@@ -1,4 +1,4 @@
-package khtml.backend.alzi.jwt;
+package khtml.backend.alzi.auth.oauth2;
 
 import java.io.IOException;
 

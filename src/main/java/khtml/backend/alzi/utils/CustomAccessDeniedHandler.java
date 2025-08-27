@@ -1,4 +1,4 @@
-package khtml.backend.alzi.config;
+package khtml.backend.alzi.utils;
 
 import java.io.IOException;
 
@@ -13,7 +13,6 @@ import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import khtml.backend.alzi.exception.ErrorCode;
-import khtml.backend.alzi.utils.ApiResponse;
 import lombok.extern.slf4j.Slf4j;
 
 /**

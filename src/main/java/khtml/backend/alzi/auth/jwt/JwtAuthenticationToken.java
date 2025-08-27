@@ -1,4 +1,4 @@
-package khtml.backend.alzi.jwt;
+package khtml.backend.alzi.auth.jwt;
 
 import java.util.Collection;
 

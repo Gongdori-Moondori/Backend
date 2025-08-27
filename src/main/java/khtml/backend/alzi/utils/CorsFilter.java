@@ -1,4 +1,4 @@
-package khtml.backend.alzi.config;
+package khtml.backend.alzi.utils;
 
 import java.io.IOException;
 

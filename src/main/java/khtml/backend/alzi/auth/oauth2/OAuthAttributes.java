@@ -1,8 +1,8 @@
-package khtml.backend.alzi.jwt;
+package khtml.backend.alzi.auth.oauth2;
 
 import java.util.Map;
 
-import khtml.backend.alzi.jwt.user.User;
+import khtml.backend.alzi.auth.user.User;
 import lombok.Builder;
 import lombok.Getter;
 

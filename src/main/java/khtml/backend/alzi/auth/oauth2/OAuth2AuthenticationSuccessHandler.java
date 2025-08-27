@@ -1,4 +1,4 @@
-package khtml.backend.alzi.jwt;
+package khtml.backend.alzi.auth.oauth2;
 
 import java.io.IOException;
 
@@ -11,8 +11,9 @@ import org.springframework.web.util.UriComponentsBuilder;
 
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
-import khtml.backend.alzi.jwt.user.User;
-import khtml.backend.alzi.jwt.user.UserRepository;
+import khtml.backend.alzi.auth.jwt.JwtTokenProvider;
+import khtml.backend.alzi.auth.user.User;
+import khtml.backend.alzi.auth.user.UserRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 
@@ -58,11 +59,11 @@ public class OAuth2AuthenticationSuccessHandler implements AuthenticationSuccess
 			.orElseThrow(() -> new IllegalStateException("사용자를 찾을 수 없습니다."));
 
 		System.out.println(
-			"조회된 사용자 - ID: " + user.getId() + ", Email: " + user.getEmail());
+			"조회된 사용자 - ID: " + user.getUserId() + ", Email: " + user.getEmail());
 
 		// JWT 토큰 생성
 		System.out.println(
-			"토큰 생성 - userId: " + user.getId() + ", email: " + user.getEmail());
+			"토큰 생성 - userId: " + user.getUserId() + ", email: " + user.getEmail());
 		String accessToken = jwtTokenProvider.generateToken(user);
 		String refreshToken = jwtTokenProvider.generateRefreshToken(user);
 

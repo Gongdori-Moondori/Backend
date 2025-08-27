@@ -11,10 +11,11 @@ import org.springframework.web.bind.annotation.ResponseBody;
 
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
-import khtml.backend.alzi.jwt.JwtAuthenticationResponse;
-import khtml.backend.alzi.jwt.JwtTokenProvider;
-import khtml.backend.alzi.jwt.user.User;
-import khtml.backend.alzi.jwt.user.UserRepository;
+import khtml.backend.alzi.auth.dto.request.RefreshTokenRequest;
+import khtml.backend.alzi.auth.jwt.JwtAuthenticationResponse;
+import khtml.backend.alzi.auth.jwt.JwtTokenProvider;
+import khtml.backend.alzi.auth.user.User;
+import khtml.backend.alzi.auth.user.UserRepository;
 import khtml.backend.alzi.utils.ApiResponse;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
