@@ -2,6 +2,7 @@ package khtml.backend.alzi.market;
 
 import org.springframework.http.MediaType;
 import org.springframework.web.bind.annotation.CrossOrigin;
+import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
@@ -46,5 +47,10 @@ public class MarketController {
 			return ApiResponse.failure("MARKET_UPDATE_FAILED",
 				"시장 정보 업데이트 중 오류가 발생했습니다: " + e.getMessage());
 		}
+	}
+
+	@GetMapping("/")
+	public ApiResponse<?> getMarket() {
+		return ApiResponse.success(marketService.getMarket());
 	}
 }

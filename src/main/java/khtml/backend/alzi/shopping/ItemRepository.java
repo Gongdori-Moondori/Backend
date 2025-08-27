@@ -1,0 +1,40 @@
+package khtml.backend.alzi.shopping;
+
+import java.util.List;
+import java.util.Optional;
+
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
+
+public interface ItemRepository extends JpaRepository<Item, Long> {
+    
+    Optional<Item> findByName(String name);
+    
+    List<Item> findByNameContainingIgnoreCase(String name);
+    
+    List<Item> findByCategory(String category);
+    
+    @Query("SELECT DISTINCT i.category FROM Item i WHERE i.category IS NOT NULL ORDER BY i.category")
+    List<String> findAllCategories();
+    
+    // 사용자별 구매 빈도가 높은 아이템 조회
+    @Query("SELECT i FROM Item i " +
+           "JOIN i.shoppingRecords sr " +
+           "JOIN sr.shoppingList sl " +
+           "WHERE sl.user.id = :userId " +
+           "AND sr.status = 'PURCHASED' " +
+           "GROUP BY i " +
+           "ORDER BY COUNT(sr) DESC")
+    Page<Item> findMostPurchasedItemsByUser(@Param("userId") Long userId, Pageable pageable);
+    
+    // 특정 아이템의 사용자별 구매 횟수
+    @Query("SELECT COUNT(sr) FROM ShoppingRecord sr " +
+           "JOIN sr.shoppingList sl " +
+           "WHERE sr.item.id = :itemId " +
+           "AND sl.user.id = :userId " +
+           "AND sr.status = 'PURCHASED'")
+    Long countPurchasesByUserAndItem(@Param("userId") Long userId, @Param("itemId") Long itemId);
+}

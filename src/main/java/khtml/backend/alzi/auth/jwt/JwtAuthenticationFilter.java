@@ -50,8 +50,8 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
 				try {
 					// 토큰 유효성 검사
 					if (tokenProvider.validateToken(jwt)) {
+						System.out.println("jwt = " + jwt);
 						String userId = tokenProvider.getUserIdFromJWT(jwt);
-
 						User user = customUserDetailsService.findByUserId(userId);
 						if (user == null) {
 							log.warn("User not found for userId: {}", userId);

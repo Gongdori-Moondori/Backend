@@ -1,8 +1,11 @@
-package khtml.backend.alzi.market;
+package khtml.backend.alzi.priceData;
 
 import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.InputStreamReader;
+import java.time.LocalDate;
+import java.time.YearMonth;
+import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -18,17 +21,19 @@ import com.opencsv.exceptions.CsvException;
 import khtml.backend.alzi.exception.CustomException;
 import khtml.backend.alzi.exception.ErrorCode;
 import khtml.backend.alzi.market.dto.response.MarketUpdateResult;
+import khtml.backend.alzi.priceData.dto.ItemListResponse;
+import khtml.backend.alzi.priceData.dto.PriceDataResponse;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 
 @Service
 @RequiredArgsConstructor
 @Slf4j
-public class MarketService {
-	private final MarketRepository marketRepository;
+public class PriceDataService {
+	private final PriceDataRepository priceDataRepository;
 
 	@Transactional
-	public MarketUpdateResult updateMarketFromCsv(MultipartFile file) {
+	public MarketUpdateResult updatePriceDataFromCsv(MultipartFile file) {
 		validateCsvFile(file);
 
 		List<String> errorMessages = new ArrayList<>();
@@ -65,11 +70,11 @@ public class MarketService {
 						totalCount++;
 
 						try {
-							Market market = parseRowToMarket(row, rowNumber);
+							PriceData market = parseRowToMarket(row, rowNumber);
 							if (market != null) {
-								marketRepository.save(market);
+								priceDataRepository.save(market);
 								successCount++;
-								log.debug("시장 정보 저장 성공: {} ({}행)", market.getName(), rowNumber);
+								log.debug("시장 정보 저장 성공: {} ({}행)", market.getMarketName(), rowNumber);
 							} else {
 								failCount++;
 								errorMessages.add(String.format("%d행: 빈 행이거나 필수 데이터가 누락됨", rowNumber));
@@ -95,10 +100,6 @@ public class MarketService {
 		log.error("모든 인코딩으로 CSV 파일 읽기 실패");
 		throw new CustomException(ErrorCode.FILE_PROCESSING_FAILED,
 			"CSV 파일을 읽을 수 없습니다. UTF-8, EUC-KR, MS949 인코딩을 확인해주세요.");
-	}
-
-	public List<Market> getMarket() {
-		return marketRepository.findAllByDistrict("동대문구");
 	}
 
 	/**
@@ -170,13 +171,13 @@ public class MarketService {
 		}
 
 		// 파일 크기 제한 (5MB - CSV는 텍스트 파일이므로 더 작은 제한)
-		if (file.getSize() > 5 * 1024 * 1024) {
+		if (file.getSize() > 20 * 1024 * 1024) {
 			throw new CustomException(ErrorCode.FILE_SIZE_EXCEEDED,
 				"파일 크기가 너무 큽니다. 최대 5MB까지 업로드 가능합니다.");
 		}
 	}
 
-	private Market parseRowToMarket(String[] row, int rowNumber) {
+	private PriceData parseRowToMarket(String[] row, int rowNumber) {
 		try {
 			// 모든 필드가 비어있는지 확인
 			boolean hasData = false;
@@ -197,30 +198,45 @@ public class MarketService {
 			}
 
 			// CSV 컬럼 순서: code, name, address, roadNameAddress, city, district
-			String code = getFieldValue(row, 0);
-			String name = getFieldValue(row, 1);
-			String address = getFieldValue(row, 3);
-			String roadNameAddress = getFieldValue(row, 4);
-			String city = getFieldValue(row, 5);
-			String district = getFieldValue(row, 6);
+			String serialNumber = getFieldValue(row, 0);
+			String marketNumber = getFieldValue(row, 1);
+			String marketName = getFieldValue(row, 2);
+			String itemNuber = getFieldValue(row, 3);
+			String itemName = getFieldValue(row, 4);
+			String actualSalesSpecifications = getFieldValue(row, 5);
+			String price = getFieldValue(row, 6);
+			DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyy-MM");
+			YearMonth yearMonth = YearMonth.parse(getFieldValue(row, 7), formatter);
+			LocalDate date = yearMonth.atDay(1); // 해당 월의 1일
+			String note = getFieldValue(row, 8);
+			String marketTypeNumber = getFieldValue(row, 9);
+			String marketType = getFieldValue(row, 10);
+			String boroughCode = getFieldValue(row, 11);
+			String boroughName = getFieldValue(row, 12);
 
 			// 필수 필드 검증 (code, name)
-			if (code == null || code.trim().isEmpty()) {
+			if (serialNumber == null || serialNumber.trim().isEmpty()) {
 				throw new RuntimeException("시장 코드가 비어있습니다.");
 			}
-			if (name == null || name.trim().isEmpty()) {
+			if (marketName == null || marketName.trim().isEmpty()) {
 				throw new RuntimeException("시장명이 비어있습니다.");
 			}
 
-			return Market.builder()
-				.code(code.trim())
-				.name(name.trim())
-				.address(address != null ? address.trim() : "")
-				.roadNameAddress(roadNameAddress != null ? roadNameAddress.trim() : "")
-				.city(city != null ? city.trim() : "")
-				.district(district != null ? district.trim() : "")
+			return PriceData.builder()
+				.serialNumber(serialNumber)
+				.marketNumber(marketNumber)
+				.marketName(marketName)
+				.itemNuber(itemNuber)
+				.itemName(itemName)
+				.actualSalesSpecifications(actualSalesSpecifications)
+				.price(price)
+				.date(date)
+				.note(note)
+				.marketTypeNumber(marketTypeNumber)
+				.marketType(marketType)
+				.boroughCode(boroughCode)
+				.boroughName(boroughName)
 				.build();
-
 		} catch (Exception e) {
 			throw new RuntimeException("데이터 파싱 오류: " + e.getMessage());
 		}
@@ -241,4 +257,39 @@ public class MarketService {
 		return fileName.substring(fileName.lastIndexOf("."));
 	}
 
+	public List<PriceData> getItemList() {
+		return priceDataRepository.findDistinctByMarketName("경동시장");
+	}
+	
+	/**
+	 * 모든 고유한 아이템명과 마켓명 조회
+	 */
+	public ItemListResponse getItemAndMarketList() {
+		List<String> itemNames = priceDataRepository.findDistinctItemNames();
+		List<String> marketNames = priceDataRepository.findDistinctMarketNames();
+		return ItemListResponse.of(itemNames, marketNames);
+	}
+	
+	/**
+	 * marketName과 itemName으로 가격 데이터 조회
+	 */
+	public List<PriceDataResponse> getPriceData(String marketName, String itemName) {
+		List<PriceData> priceDataList;
+		
+		if (marketName != null && itemName != null) {
+			// 둘 다 있는 경우
+			priceDataList = priceDataRepository.findByMarketNameAndItemNameOrderByDateDesc(marketName, itemName);
+		} else if (marketName != null) {
+			// marketName만 있는 경우
+			priceDataList = priceDataRepository.findByMarketNameOrderByDateDesc(marketName);
+		} else if (itemName != null) {
+			// itemName만 있는 경우
+			priceDataList = priceDataRepository.findByItemNameOrderByDateDesc(itemName);
+		} else {
+			// 둘 다 없는 경우 - 빈 리스트 반환
+			return new ArrayList<>();
+		}
+		
+		return PriceDataResponse.fromList(priceDataList);
+	}
 }
