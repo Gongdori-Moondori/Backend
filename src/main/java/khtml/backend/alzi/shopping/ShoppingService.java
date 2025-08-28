@@ -1,5 +1,6 @@
 package khtml.backend.alzi.shopping;
 
+import java.math.BigDecimal;
 import java.util.List;
 import java.util.Optional;
 
@@ -21,6 +22,7 @@ public class ShoppingService {
 	private final ItemRepository itemRepository;
 	private final ShoppingListRepository shoppingListRepository;
 	private final ShoppingRecordRepository shoppingRecordRepository;
+	private final ItemPriceRepository itemPriceRepository;
 	private final PriceDataRepository priceDataRepository;
 	private final ItemCategoryUtil itemCategoryUtil;
 
@@ -42,15 +44,20 @@ public class ShoppingService {
 				// 기존 아이템 찾기 또는 새로 생성
 				Item item = findOrCreateItem(itemRequest.getItemName(), itemRequest.getCategory());
 				
-				// 쇼핑 기록 생성
+				// 아이템 가격 조회
+				BigDecimal unitPrice = getItemPrice(item);
+				
+				// 쇼핑 기록 생성 (가격 정보 포함)
 				ShoppingRecord record = ShoppingRecord.builder()
 					.shoppingList(savedShoppingList)
 					.item(item)
 					.quantity(itemRequest.getQuantity())
+					.unitPrice(unitPrice)
 					.build();
 				
 				shoppingRecordRepository.save(record);
-				log.info("쇼핑 기록 생성 - 아이템: {}, 수량: {}", item.getName(), itemRequest.getQuantity());
+				log.info("쇼핑 기록 생성 - 아이템: {}, 수량: {}, 단가: {}원", 
+					item.getName(), itemRequest.getQuantity(), unitPrice);
 			}
 		}
 		
@@ -178,5 +185,214 @@ public class ShoppingService {
 		}
 		
 		log.info("아이템 카테고리 일괄 업데이트 완료 - 총 {}개 아이템 업데이트", updatedCount);
+	}
+
+	/**
+	 * 아이템의 현재 평균 가격 조회
+	 * ItemPrice에서 해당 아이템의 가격 정보를 가져와서 평균값 계산
+	 */
+	private BigDecimal getItemPrice(Item item) {
+		try {
+			List<ItemPrice> itemPrices = itemPriceRepository.findAllByItemName(item.getName());
+			
+			if (itemPrices.isEmpty()) {
+				log.debug("아이템 '{}'의 가격 정보가 없습니다", item.getName());
+				return getDefaultItemPrice(item.getName(), item.getCategory());
+			}
+
+			// 유효한 가격들만 필터링
+			List<BigDecimal> validPrices = itemPrices.stream()
+				.map(ItemPrice::getPrice)
+				.filter(price -> price != null && price.compareTo(BigDecimal.ZERO) > 0)
+				.toList();
+
+			if (validPrices.isEmpty()) {
+				log.debug("아이템 '{}'의 유효한 가격 정보가 없습니다", item.getName());
+				return getDefaultItemPrice(item.getName(), item.getCategory());
+			}
+
+			// 평균 가격 계산
+			BigDecimal sum = validPrices.stream()
+				.reduce(BigDecimal.ZERO, BigDecimal::add);
+			
+			BigDecimal averagePrice = sum.divide(
+				BigDecimal.valueOf(validPrices.size()), 
+				0, // 소수점 없이 정수로
+				BigDecimal.ROUND_HALF_UP
+			);
+
+			log.info("아이템 '{}' 평균 가격 계산 완료 - {}원 ({}개 시장 평균)", 
+				item.getName(), averagePrice, validPrices.size());
+
+			return averagePrice;
+
+		} catch (Exception e) {
+			log.error("아이템 '{}' 가격 조회 실패: {}", item.getName(), e.getMessage());
+			return getDefaultItemPrice(item.getName(), item.getCategory());
+		}
+	}
+
+	/**
+	 * 가격 정보가 없는 경우 기본 가격 설정
+	 */
+	private BigDecimal getDefaultItemPrice(String itemName, String category) {
+		// 카테고리별 기본 가격 설정
+		BigDecimal basePrice = switch (category != null ? category.toLowerCase() : "기타") {
+			case "채소류" -> switch (itemName.toLowerCase()) {
+				case "배추", "무" -> BigDecimal.valueOf(3000);
+				case "상추", "시금치", "냉이", "미나리" -> BigDecimal.valueOf(2000);
+				case "토마토", "오이", "가지", "호박" -> BigDecimal.valueOf(3500);
+				case "대파", "브로콜리" -> BigDecimal.valueOf(2500);
+				default -> BigDecimal.valueOf(3000);
+			};
+			case "과일류" -> switch (itemName.toLowerCase()) {
+				case "수박" -> BigDecimal.valueOf(12000);
+				case "복숭아", "포도", "사과" -> BigDecimal.valueOf(5000);
+				case "딸기", "참외", "자두" -> BigDecimal.valueOf(4000);
+				case "배", "감", "귤" -> BigDecimal.valueOf(4500);
+				default -> BigDecimal.valueOf(5000);
+			};
+			case "곡물류" -> switch (itemName.toLowerCase()) {
+				case "쌀" -> BigDecimal.valueOf(20000);
+				case "옥수수", "고구마" -> BigDecimal.valueOf(3000);
+				default -> BigDecimal.valueOf(5000);
+			};
+			case "수산물" -> BigDecimal.valueOf(15000);
+			case "견과류" -> BigDecimal.valueOf(8000);
+			default -> BigDecimal.valueOf(5000); // 기본값
+		};
+
+		log.info("아이템 '{}' 기본 가격 설정 - {}원 (카테고리: {})", itemName, basePrice, category);
+		return basePrice;
+	}
+
+	/**
+	 * 장바구니 아이템들을 구매 완료 상태로 변경
+	 */
+	@Transactional
+	public ShoppingListResponse completeShoppingItems(Long shoppingListId, List<Long> itemIds, User user) {
+		log.info("장바구니 {} 아이템 구매 완료 처리 시작 - 아이템 ID: {}", shoppingListId, itemIds);
+
+		// 장바구니 조회 및 권한 확인
+		ShoppingList shoppingList = shoppingListRepository.findByIdAndUser(shoppingListId, user)
+			.orElseThrow(() -> new IllegalArgumentException("해당 장바구니를 찾을 수 없습니다."));
+
+		// 아이템 ID들 검증 및 상태 변경
+		int updatedCount = 0;
+		for (Long itemId : itemIds) {
+			Optional<ShoppingRecord> recordOpt = shoppingRecordRepository
+				.findByIdAndShoppingListAndUser(itemId, shoppingList, user);
+			
+			if (recordOpt.isPresent()) {
+				ShoppingRecord record = recordOpt.get();
+				
+				// 이미 완료된 아이템은 건너뛰기
+				if (record.getStatus() == ShoppingRecord.PurchaseStatus.PURCHASED) {
+					log.info("이미 구매 완료된 아이템 건너뛰기 - 아이템 ID: {}, 아이템명: {}", itemId, record.getItem().getName());
+					continue;
+				}
+				
+				record.markAsPurchased();
+				shoppingRecordRepository.save(record);
+				updatedCount++;
+				
+				log.info("아이템 구매 완료 처리 - 아이템 ID: {}, 아이템명: {}", itemId, record.getItem().getName());
+			} else {
+				log.warn("아이템 ID {}를 찾을 수 없거나 권한이 없습니다", itemId);
+			}
+		}
+
+		log.info("장바구니 {} 아이템 구매 완료 처리 완료 - 총 {}개 처리", shoppingListId, updatedCount);
+
+		// 업데이트된 장바구니 정보 반환
+		ShoppingList updatedShoppingList = shoppingListRepository.findByIdAndUser(shoppingListId, user)
+			.orElseThrow(() -> new IllegalStateException("장바구니 조회 실패"));
+		
+		return ShoppingListResponse.from(updatedShoppingList);
+	}
+
+	/**
+	 * 장바구니 아이템들을 취소 상태로 변경
+	 */
+	@Transactional
+	public ShoppingListResponse cancelShoppingItems(Long shoppingListId, List<Long> itemIds, User user) {
+		log.info("장바구니 {} 아이템 취소 처리 시작 - 아이템 ID: {}", shoppingListId, itemIds);
+
+		// 장바구니 조회 및 권한 확인
+		ShoppingList shoppingList = shoppingListRepository.findByIdAndUser(shoppingListId, user)
+			.orElseThrow(() -> new IllegalArgumentException("해당 장바구니를 찾을 수 없습니다."));
+
+		// 아이템 ID들 검증 및 상태 변경
+		int updatedCount = 0;
+		for (Long itemId : itemIds) {
+			Optional<ShoppingRecord> recordOpt = shoppingRecordRepository
+				.findByIdAndShoppingListAndUser(itemId, shoppingList, user);
+			
+			if (recordOpt.isPresent()) {
+				ShoppingRecord record = recordOpt.get();
+				
+				// 이미 취소된 아이템은 건너뛰기
+				if (record.getStatus() == ShoppingRecord.PurchaseStatus.CANCELLED) {
+					log.info("이미 취소된 아이템 건너뛰기 - 아이템 ID: {}, 아이템명: {}", itemId, record.getItem().getName());
+					continue;
+				}
+				
+				record.cancel();
+				shoppingRecordRepository.save(record);
+				updatedCount++;
+				
+				log.info("아이템 취소 처리 - 아이템 ID: {}, 아이템명: {}", itemId, record.getItem().getName());
+			} else {
+				log.warn("아이템 ID {}를 찾을 수 없거나 권한이 없습니다", itemId);
+			}
+		}
+
+		log.info("장바구니 {} 아이템 취소 처리 완료 - 총 {}개 처리", shoppingListId, updatedCount);
+
+		// 업데이트된 장바구니 정보 반환
+		ShoppingList updatedShoppingList = shoppingListRepository.findByIdAndUser(shoppingListId, user)
+			.orElseThrow(() -> new IllegalStateException("장바구니 조회 실패"));
+		
+		return ShoppingListResponse.from(updatedShoppingList);
+	}
+
+	/**
+	 * 장바구니의 완료/미완료 아이템 통계 조회
+	 */
+	@Transactional(readOnly = true)
+	public ShoppingListStatistics getShoppingListStatistics(Long shoppingListId, User user) {
+		ShoppingList shoppingList = shoppingListRepository.findByIdAndUser(shoppingListId, user)
+			.orElseThrow(() -> new IllegalArgumentException("해당 장바구니를 찾을 수 없습니다."));
+
+		List<ShoppingRecord> records = shoppingList.getShoppingRecords();
+		
+		int totalItems = records.size();
+		int completedItems = (int) records.stream()
+			.filter(record -> record.getStatus() == ShoppingRecord.PurchaseStatus.PURCHASED)
+			.count();
+		int cancelledItems = (int) records.stream()
+			.filter(record -> record.getStatus() == ShoppingRecord.PurchaseStatus.CANCELLED)
+			.count();
+		int plannedItems = totalItems - completedItems - cancelledItems;
+
+		return ShoppingListStatistics.builder()
+			.shoppingListId(shoppingListId)
+			.totalItems(totalItems)
+			.completedItems(completedItems)
+			.plannedItems(plannedItems)
+			.cancelledItems(cancelledItems)
+			.completionRate(totalItems > 0 ? (double) completedItems / totalItems * 100 : 0.0)
+			.build();
+	}
+
+	@lombok.Data
+	@lombok.Builder
+	public static class ShoppingListStatistics {
+		private Long shoppingListId;
+		private int totalItems;
+		private int completedItems;
+		private int plannedItems;
+		private int cancelledItems;
+		private double completionRate; // 완료율 (%)
 	}
 }

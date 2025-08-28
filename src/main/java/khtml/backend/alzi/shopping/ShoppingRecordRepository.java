@@ -3,10 +3,13 @@ package khtml.backend.alzi.shopping;
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Optional;
 
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
+
+import khtml.backend.alzi.auth.user.User;
 
 public interface ShoppingRecordRepository extends JpaRepository<ShoppingRecord, Long> {
     
@@ -49,4 +52,13 @@ public interface ShoppingRecordRepository extends JpaRepository<ShoppingRecord, 
            "AND sr.status = 'PURCHASED' " +
            "ORDER BY sr.purchasedAt DESC")
     List<Item> findRecentlyPurchasedItems(@Param("userId") Long userId);
+    
+    // 특정 ID, 장바구니, 사용자로 ShoppingRecord 조회 (권한 확인용)
+    @Query("SELECT sr FROM ShoppingRecord sr " +
+           "WHERE sr.id = :recordId " +
+           "AND sr.shoppingList = :shoppingList " +
+           "AND sr.shoppingList.user = :user")
+    Optional<ShoppingRecord> findByIdAndShoppingListAndUser(@Param("recordId") Long recordId, 
+                                                           @Param("shoppingList") ShoppingList shoppingList,
+                                                           @Param("user") User user);
 }

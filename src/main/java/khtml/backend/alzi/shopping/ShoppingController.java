@@ -16,6 +16,7 @@ import org.springframework.web.bind.annotation.RestController;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import khtml.backend.alzi.auth.user.User;
+import khtml.backend.alzi.shopping.dto.CompleteItemsRequest;
 import khtml.backend.alzi.shopping.dto.CreateShoppingListRequest;
 import khtml.backend.alzi.shopping.dto.ShoppingListResponse;
 import khtml.backend.alzi.utils.ApiResponse;
@@ -127,5 +128,82 @@ public class ShoppingController {
 		}
 		return ResponseEntity.ok(ApiResponse.success(
 			category + " 카테고리의 아이템 목록을 조회했습니다.", items));
+	}
+
+	@PatchMapping("/lists/{shoppingListId}/items/complete")
+	@Operation(
+		summary = "장바구니 아이템 구매 완료 처리", 
+		description = "특정 장바구니에서 선택한 아이템들을 구매 완료 상태로 변경합니다. " +
+					 "아이템 ID 리스트를 받아서 해당 아이템들의 상태를 PURCHASED로 업데이트합니다."
+	)
+	public ResponseEntity<ApiResponse<ShoppingListResponse>> completeShoppingItems(
+		@Parameter(description = "장바구니 ID") @PathVariable Long shoppingListId,
+		@Parameter(description = "완료 처리할 아이템 ID 리스트") @RequestBody CompleteItemsRequest request) {
+
+		User user = SecurityUtils.getCurrentUser();
+		log.info("장바구니 {} 아이템 구매 완료 처리 - 사용자: {}, 아이템 수: {}", 
+			shoppingListId, user.getUserId(), request.getItemIds().size());
+
+		try {
+			ShoppingListResponse response = shoppingService.completeShoppingItems(shoppingListId, request.getItemIds(), user);
+			return ResponseEntity.ok(ApiResponse.success("선택한 아이템들이 구매 완료로 처리되었습니다.", response));
+		} catch (IllegalArgumentException e) {
+			return ResponseEntity.badRequest()
+				.body(ApiResponse.failure("INVALID_REQUEST", e.getMessage()));
+		} catch (Exception e) {
+			log.error("아이템 구매 완료 처리 중 오류 발생", e);
+			return ResponseEntity.badRequest()
+				.body(ApiResponse.failure("COMPLETE_ITEMS_FAILED", "아이템 구매 완료 처리 중 오류가 발생했습니다: " + e.getMessage()));
+		}
+	}
+
+	@PatchMapping("/lists/{shoppingListId}/items/cancel")
+	@Operation(
+		summary = "장바구니 아이템 취소 처리", 
+		description = "특정 장바구니에서 선택한 아이템들을 취소 상태로 변경합니다."
+	)
+	public ResponseEntity<ApiResponse<ShoppingListResponse>> cancelShoppingItems(
+		@Parameter(description = "장바구니 ID") @PathVariable Long shoppingListId,
+		@Parameter(description = "취소 처리할 아이템 ID 리스트") @RequestBody CompleteItemsRequest request) {
+
+		User user = SecurityUtils.getCurrentUser();
+		log.info("장바구니 {} 아이템 취소 처리 - 사용자: {}, 아이템 수: {}", 
+			shoppingListId, user.getUserId(), request.getItemIds().size());
+
+		try {
+			ShoppingListResponse response = shoppingService.cancelShoppingItems(shoppingListId, request.getItemIds(), user);
+			return ResponseEntity.ok(ApiResponse.success("선택한 아이템들이 취소 처리되었습니다.", response));
+		} catch (IllegalArgumentException e) {
+			return ResponseEntity.badRequest()
+				.body(ApiResponse.failure("INVALID_REQUEST", e.getMessage()));
+		} catch (Exception e) {
+			log.error("아이템 취소 처리 중 오류 발생", e);
+			return ResponseEntity.badRequest()
+				.body(ApiResponse.failure("CANCEL_ITEMS_FAILED", "아이템 취소 처리 중 오류가 발생했습니다: " + e.getMessage()));
+		}
+	}
+
+	@GetMapping("/lists/{shoppingListId}/statistics")
+	@Operation(
+		summary = "장바구니 통계 조회", 
+		description = "특정 장바구니의 완료/미완료 아이템 통계를 조회합니다."
+	)
+	public ResponseEntity<ApiResponse<ShoppingService.ShoppingListStatistics>> getShoppingListStatistics(
+		@Parameter(description = "장바구니 ID") @PathVariable Long shoppingListId) {
+
+		User user = SecurityUtils.getCurrentUser();
+		log.info("장바구니 {} 통계 조회 - 사용자: {}", shoppingListId, user.getUserId());
+
+		try {
+			ShoppingService.ShoppingListStatistics statistics = shoppingService.getShoppingListStatistics(shoppingListId, user);
+			return ResponseEntity.ok(ApiResponse.success("장바구니 통계를 조회했습니다.", statistics));
+		} catch (IllegalArgumentException e) {
+			return ResponseEntity.badRequest()
+				.body(ApiResponse.failure("INVALID_REQUEST", e.getMessage()));
+		} catch (Exception e) {
+			log.error("장바구니 통계 조회 중 오류 발생", e);
+			return ResponseEntity.badRequest()
+				.body(ApiResponse.failure("STATISTICS_FAILED", "장바구니 통계 조회 중 오류가 발생했습니다: " + e.getMessage()));
+		}
 	}
 }
