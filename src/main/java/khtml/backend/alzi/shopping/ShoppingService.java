@@ -10,6 +10,7 @@ import khtml.backend.alzi.auth.user.User;
 import khtml.backend.alzi.priceData.PriceDataRepository;
 import khtml.backend.alzi.shopping.dto.CreateShoppingListRequest;
 import khtml.backend.alzi.shopping.dto.ShoppingListResponse;
+import khtml.backend.alzi.utils.ItemCategoryUtil;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 
@@ -21,6 +22,7 @@ public class ShoppingService {
 	private final ShoppingListRepository shoppingListRepository;
 	private final ShoppingRecordRepository shoppingRecordRepository;
 	private final PriceDataRepository priceDataRepository;
+	private final ItemCategoryUtil itemCategoryUtil;
 
 	@Transactional
 	public ShoppingListResponse createShoppingList(CreateShoppingListRequest request, User user) {
@@ -70,24 +72,40 @@ public class ShoppingService {
 			log.info("기존 아이템 사용 - 이름: {}", itemName);
 			Item item = existingItem.get();
 			
-			// 카테고리 업데이트 (새로운 카테고리 정보가 있고, 기존 카테고리가 없거나 다른 경우)
-			if (category != null && !category.trim().isEmpty() && 
-				(item.getCategory() == null || !category.equals(item.getCategory()))) {
+			// 기존 아이템의 카테고리가 null이거나 비어있는 경우 자동 분류
+			String finalCategory = category;
+			if (item.getCategory() == null || item.getCategory().trim().isEmpty()) {
+				finalCategory = (category != null && !category.trim().isEmpty()) 
+					? category 
+					: itemCategoryUtil.categorizeItem(itemName);
+				
+				item.updateInfo(finalCategory);
+				itemRepository.save(item);
+				log.info("아이템 카테고리 자동 설정 - 이름: {}, 카테고리: {}", itemName, finalCategory);
+			} else if (category != null && !category.trim().isEmpty() && 
+					   !category.equals(item.getCategory())) {
+				// 새로운 카테고리 정보가 있고 기존과 다른 경우 업데이트
 				item.updateInfo(category);
 				itemRepository.save(item);
-				log.info("아이템 카테고리 업데이트 - 이름: {}, 카테고리: {}", itemName, category);
+				log.info("아이템 카테고리 업데이트 - 이름: {}, 기존: {}, 신규: {}", 
+					itemName, item.getCategory(), category);
 			}
 			
 			return item;
 		} else {
-			// 새 아이템 생성
+			// 새 아이템 생성 - 카테고리가 없으면 자동 분류
+			String finalCategory = (category != null && !category.trim().isEmpty()) 
+				? category 
+				: itemCategoryUtil.categorizeItem(itemName);
+			
 			Item newItem = Item.builder()
 				.name(itemName)
-				.category(category)
+				.category(finalCategory)
 				.build();
 			
 			Item savedItem = itemRepository.save(newItem);
-			log.info("새 아이템 생성 - 이름: {}, 카테고리: {}", itemName, category);
+			log.info("새 아이템 생성 - 이름: {}, 카테고리: {} (자동분류: {})", 
+				itemName, finalCategory, category == null || category.trim().isEmpty());
 			
 			return savedItem;
 		}
@@ -120,11 +138,45 @@ public class ShoppingService {
 		distinctItemNames.forEach(distinctItemName -> {
 			String[] split = distinctItemName.split(" ");
 			if (!itemRepository.existsItemByName(split[0])) {
-				Item build;
-				build = Item.builder()
-					.name(split[0]).build();
+				// 카테고리 자동 분류하여 아이템 생성
+				String autoCategory = itemCategoryUtil.categorizeItem(split[0]);
+				Item build = Item.builder()
+					.name(split[0])
+					.category(autoCategory)
+					.build();
 				itemRepository.save(build);
+				log.info("가격 데이터에서 새 아이템 생성 - 이름: {}, 카테고리: {}", split[0], autoCategory);
 			}
 		});
+	}
+	
+	/**
+	 * 기존 아이템들의 카테고리를 일괄 업데이트
+	 * 카테고리가 null이거나 "기타"인 아이템들을 대상으로 자동 분류 실행
+	 */
+	@Transactional
+	public void updateItemCategories() {
+		log.info("아이템 카테고리 일괄 업데이트 시작");
+		
+		List<Item> itemsToUpdate = itemRepository.findAll().stream()
+			.filter(item -> item.getCategory() == null || 
+						   item.getCategory().trim().isEmpty() ||
+						   ItemCategoryUtil.OTHERS.equals(item.getCategory()))
+			.toList();
+		
+		int updatedCount = 0;
+		for (Item item : itemsToUpdate) {
+			String autoCategory = itemCategoryUtil.categorizeItem(item.getName());
+			
+			// "기타"가 아닌 카테고리로 분류된 경우에만 업데이트
+			if (!ItemCategoryUtil.OTHERS.equals(autoCategory)) {
+				item.updateInfo(autoCategory);
+				itemRepository.save(item);
+				updatedCount++;
+				log.info("카테고리 업데이트 - 아이템: {}, 카테고리: {}", item.getName(), autoCategory);
+			}
+		}
+		
+		log.info("아이템 카테고리 일괄 업데이트 완료 - 총 {}개 아이템 업데이트", updatedCount);
 	}
 }

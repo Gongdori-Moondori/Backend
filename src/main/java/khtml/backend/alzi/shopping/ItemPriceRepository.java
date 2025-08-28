@@ -45,4 +45,7 @@ public interface ItemPriceRepository extends JpaRepository<ItemPrice, Long> {
     @Query("SELECT ip FROM ItemPrice ip WHERE ip.surveyDate BETWEEN :startDate AND :endDate")
     List<ItemPrice> findBySurveyDateBetween(@Param("startDate") LocalDate startDate, 
                                            @Param("endDate") LocalDate endDate);
+    
+    // 특정 아이템, 시장, 날짜로 가격 정보 조회 (API 업데이트용)
+    Optional<ItemPrice> findByItemAndMarketAndSurveyDate(Item item, Market market, LocalDate surveyDate);
 }
