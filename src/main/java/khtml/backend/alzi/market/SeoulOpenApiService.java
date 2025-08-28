@@ -11,6 +11,8 @@ import khtml.backend.alzi.shopping.ItemRepository;
 import khtml.backend.alzi.utils.ItemCategoryUtil;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.client.RestTemplate;
@@ -49,7 +51,8 @@ public class SeoulOpenApiService {
     }
     
     // API KEY는 실제 환경에서는 application.properties에서 가져와야 합니다
-    private static final String API_KEY = "6c774b49706f6877393173656c6845"; // 실제 키로 변경 필요
+    @Value("${api-key}")
+    private String API_KEY;
     private static final String BASE_URL = "http://openAPI.seoul.go.kr:8088/{apiKey}/xml/ListNecessariesPricesService/{startIdx}/{endIdx}/{marketName}/{itemName}/{yearMonth}";
     
     /**
