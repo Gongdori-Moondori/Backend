@@ -16,6 +16,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
 import java.math.RoundingMode;
+import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
 import java.util.stream.Collectors;
@@ -112,6 +113,39 @@ public class RecommendationService {
         private BigDecimal price;
         private String priceUnit;
         private boolean isAvailable;             // 해당 마트에서 판매 여부
+    }
+
+    @Data
+    public static class ComprehensiveRecommendation {
+        private String marketName;               // 분석 대상 시장명
+        
+        // 1. 계절 추천
+        private List<SeasonalRecommendationUtil.SeasonalRecommendation> seasonalRecommendations;
+        
+        // 2. 시장 절약 추천  
+        private List<MarketSavingRecommendation> savingRecommendations;
+        
+        // 3. 시장 vs 마트 비교
+        private List<MarketVsMartComparison> marketVsMartComparisons;
+        
+        // 4. 종합 요약
+        private ComprehensiveSummary summary;
+    }
+
+    @Data
+    public static class ComprehensiveSummary {
+        private int totalAnalyzedItems;          // 분석된 전체 아이템 수
+        private int seasonalItemsCount;          // 제철 아이템 수
+        private int savingItemsCount;            // 절약 가능 아이템 수
+        private int marketWinCount;              // 전통시장이 더 저렴한 아이템 수
+        private int martWinCount;                // 대형마트가 더 저렴한 아이템 수
+        
+        private BigDecimal maxSavingAmount;      // 최대 절약 가능 금액
+        private double maxSavingPercentage;      // 최대 절약 비율
+        private String bestDealItem;             // 가장 좋은 딜의 아이템명
+        
+        private String overallRecommendation;    // 종합 쇼핑 추천
+        private List<String> shoppingTips;       // 쇼핑 팁
     }
 
     /**
@@ -653,5 +687,207 @@ public class RecommendationService {
         }
         
         return summary.toString();
+    }
+
+    /**
+     * 종합 추천 분석 (계절 + 절약 + 시장vs마트 통합)
+     */
+    @Transactional(readOnly = true)
+    public ComprehensiveRecommendation getComprehensiveRecommendation(String marketName) {
+        log.info("시장 '{}' 종합 추천 분석 시작", marketName);
+
+        try {
+            ComprehensiveRecommendation comprehensive = new ComprehensiveRecommendation();
+            comprehensive.setMarketName(marketName);
+
+            // 1. 계절 추천 조회
+            List<SeasonalRecommendationUtil.SeasonalRecommendation> seasonalRecommendations = 
+                seasonalRecommendationUtil.getCurrentSeasonalRecommendations();
+            comprehensive.setSeasonalRecommendations(seasonalRecommendations);
+
+            // 2. 시장 절약 추천 조회
+            List<MarketSavingRecommendation> savingRecommendations = 
+                getMarketSavingRecommendations(marketName);
+            comprehensive.setSavingRecommendations(savingRecommendations);
+
+            // 3. 시장 vs 마트 비교 조회
+            List<MarketVsMartComparison> marketVsMartComparisons = 
+                getMarketVsMartComparisons(marketName);
+            comprehensive.setMarketVsMartComparisons(marketVsMartComparisons);
+
+            // 4. 종합 요약 생성
+            ComprehensiveSummary summary = generateComprehensiveSummary(
+                seasonalRecommendations, savingRecommendations, marketVsMartComparisons, marketName);
+            comprehensive.setSummary(summary);
+
+            log.info("시장 '{}' 종합 추천 분석 완료", marketName);
+            return comprehensive;
+
+        } catch (Exception e) {
+            log.error("시장 '{}' 종합 추천 분석 중 오류 발생: {}", marketName, e.getMessage(), e);
+            throw new RuntimeException("종합 추천 분석 실패", e);
+        }
+    }
+
+    /**
+     * 종합 요약 생성
+     */
+    private ComprehensiveSummary generateComprehensiveSummary(
+            List<SeasonalRecommendationUtil.SeasonalRecommendation> seasonalRecs,
+            List<MarketSavingRecommendation> savingRecs,
+            List<MarketVsMartComparison> martComparisons,
+            String marketName) {
+
+        ComprehensiveSummary summary = new ComprehensiveSummary();
+
+        // 기본 통계
+        summary.setSeasonalItemsCount(seasonalRecs.size());
+        summary.setSavingItemsCount(savingRecs.size());
+        
+        // 시장 vs 마트 승패 계산
+        int marketWins = (int) martComparisons.stream()
+            .filter(comp -> "MARKET".equals(comp.getWinner()))
+            .count();
+        int martWins = (int) martComparisons.stream()
+            .filter(comp -> "MART".equals(comp.getWinner()))
+            .count();
+        
+        summary.setMarketWinCount(marketWins);
+        summary.setMartWinCount(martWins);
+        summary.setTotalAnalyzedItems(martComparisons.size());
+
+        // 최대 절약 정보 계산
+        calculateMaxSavingInfo(summary, savingRecs, martComparisons);
+
+        // 종합 쇼핑 추천 생성
+        generateOverallRecommendation(summary, marketName, marketWins, martWins);
+
+        // 쇼핑 팁 생성
+        generateShoppingTips(summary, seasonalRecs, savingRecs, martComparisons);
+
+        return summary;
+    }
+
+    /**
+     * 최대 절약 정보 계산
+     */
+    private void calculateMaxSavingInfo(ComprehensiveSummary summary, 
+                                       List<MarketSavingRecommendation> savingRecs,
+                                       List<MarketVsMartComparison> martComparisons) {
+        
+        BigDecimal maxSaving = BigDecimal.ZERO;
+        double maxSavingPercent = 0.0;
+        String bestDealItem = "없음";
+
+        // 절약 추천에서 최대값 찾기
+        for (MarketSavingRecommendation rec : savingRecs) {
+            if (rec.getSavingAmount() != null && rec.getSavingAmount().compareTo(maxSaving) > 0) {
+                maxSaving = rec.getSavingAmount();
+                maxSavingPercent = rec.getSavingPercentage();
+                bestDealItem = rec.getItemName();
+            }
+        }
+
+        // 마트 비교에서도 최대값 확인 (시장이 더 저렴한 경우)
+        for (MarketVsMartComparison comp : martComparisons) {
+            if ("MARKET".equals(comp.getWinner()) && 
+                comp.getPriceDifference() != null && 
+                comp.getPriceDifference().compareTo(maxSaving) > 0) {
+                
+                maxSaving = comp.getPriceDifference();
+                maxSavingPercent = comp.getSavingPercentage();
+                bestDealItem = comp.getItemName();
+            }
+        }
+
+        summary.setMaxSavingAmount(maxSaving);
+        summary.setMaxSavingPercentage(maxSavingPercent);
+        summary.setBestDealItem(bestDealItem);
+    }
+
+    /**
+     * 종합 쇼핑 추천 생성
+     */
+    private void generateOverallRecommendation(ComprehensiveSummary summary, String marketName, 
+                                             int marketWins, int martWins) {
+        StringBuilder recommendation = new StringBuilder();
+
+        if (marketWins > martWins) {
+            recommendation.append(String.format("%s에서 쇼핑하는 것을 추천합니다! ", marketName));
+            recommendation.append(String.format("분석한 %d개 아이템 중 %d개에서 더 저렴합니다.", 
+                                               marketWins + martWins, marketWins));
+        } else if (martWins > marketWins) {
+            recommendation.append("대형마트에서 쇼핑하는 것이 더 경제적입니다. ");
+            recommendation.append(String.format("분석한 %d개 아이템 중 %d개에서 마트가 더 저렴합니다.", 
+                                               marketWins + martWins, martWins));
+        } else {
+            recommendation.append("전통시장과 대형마트가 비슷한 가격 수준입니다. ");
+            recommendation.append("아이템별로 선택적 구매를 추천합니다.");
+        }
+
+        // 제철 아이템 추가 정보
+        if (summary.getSeasonalItemsCount() > 0) {
+            recommendation.append(String.format(" 현재 %d개의 제철 아이템이 있으니 함께 고려해보세요.", 
+                                               summary.getSeasonalItemsCount()));
+        }
+
+        summary.setOverallRecommendation(recommendation.toString());
+    }
+
+    /**
+     * 쇼핑 팁 생성
+     */
+    private void generateShoppingTips(ComprehensiveSummary summary,
+                                     List<SeasonalRecommendationUtil.SeasonalRecommendation> seasonalRecs,
+                                     List<MarketSavingRecommendation> savingRecs,
+                                     List<MarketVsMartComparison> martComparisons) {
+        
+        List<String> tips = new ArrayList<>();
+
+        // 제철 아이템 팁
+        if (!seasonalRecs.isEmpty()) {
+            String seasonalItems = seasonalRecs.stream()
+                .map(SeasonalRecommendationUtil.SeasonalRecommendation::getItemName)
+                .collect(Collectors.joining(", "));
+            tips.add("🍎 제철 아이템: " + seasonalItems + " - 영양가도 높고 맛도 좋습니다!");
+        }
+
+        // 절약 팁
+        if (!savingRecs.isEmpty()) {
+            MarketSavingRecommendation topSaving = savingRecs.get(0);
+            tips.add(String.format("💰 최고 절약템: %s (%.1f%% 절약)", 
+                                 topSaving.getItemName(), topSaving.getSavingPercentage()));
+        }
+
+        // 시장 vs 마트 팁
+        long marketAdvantageItems = martComparisons.stream()
+            .filter(comp -> "MARKET".equals(comp.getWinner()))
+            .count();
+        
+        if (marketAdvantageItems > 0) {
+            tips.add(String.format("🏪 전통시장 유리 아이템 %d개 - 신선하고 저렴합니다!", marketAdvantageItems));
+        }
+
+        long martAdvantageItems = martComparisons.stream()
+            .filter(comp -> "MART".equals(comp.getWinner()))
+            .count();
+        
+        if (martAdvantageItems > 0) {
+            tips.add(String.format("🏬 대형마트 유리 아이템 %d개 - 편리하고 품질이 일정합니다!", martAdvantageItems));
+        }
+
+        // 최대 절약 팁
+        if (summary.getMaxSavingAmount() != null && 
+            summary.getMaxSavingAmount().compareTo(BigDecimal.valueOf(5000)) > 0) {
+            tips.add(String.format("💸 '%s' 구매시 최대 %,d원 절약 가능!", 
+                                 summary.getBestDealItem(), summary.getMaxSavingAmount().intValue()));
+        }
+
+        // 기본 팁 추가
+        if (tips.isEmpty()) {
+            tips.add("📊 다양한 옵션을 비교해보고 현명한 쇼핑하세요!");
+        }
+
+        summary.setShoppingTips(tips);
     }
 }

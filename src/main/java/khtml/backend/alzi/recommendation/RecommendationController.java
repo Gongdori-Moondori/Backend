@@ -147,4 +147,34 @@ public class RecommendationController {
                 "전통시장 vs 대형마트 비교 중 오류가 발생했습니다: " + e.getMessage());
         }
     }
+
+    @GetMapping("/market/{marketName}/main")
+    @Operation(
+        summary = "종합 쇼핑 추천 분석", 
+        description = "특정 시장에 대한 종합 분석을 제공합니다. " +
+                     "계절 추천 + 시장 절약 아이템 + 전통시장 vs 대형마트 비교를 모두 포함하여 " +
+                     "최적의 쇼핑 전략을 제안합니다."
+    )
+    public ApiResponse<RecommendationService.ComprehensiveRecommendation> getComprehensiveRecommendation(
+            @Parameter(description = "분석할 전통시장명") @PathVariable String marketName) {
+        
+        log.info("시장 '{}' 종합 쇼핑 추천 분석 요청", marketName);
+
+        try {
+            RecommendationService.ComprehensiveRecommendation recommendation = 
+                recommendationService.getComprehensiveRecommendation(marketName);
+
+            String message = String.format("시장 '%s'에 대한 종합 쇼핑 분석 결과입니다. " +
+                                         "계절 추천, 절약 아이템, 시장-마트 비교를 모두 포함합니다.", marketName);
+
+            log.info("시장 '{}' 종합 쇼핑 추천 분석 완료", marketName);
+
+            return ApiResponse.success(message, recommendation);
+
+        } catch (Exception e) {
+            log.error("시장 '{}' 종합 쇼핑 추천 분석 중 오류 발생", marketName, e);
+            return ApiResponse.failure("COMPREHENSIVE_RECOMMENDATION_FAILED", 
+                "종합 쇼핑 추천 분석 중 오류가 발생했습니다: " + e.getMessage());
+        }
+    }
 }
