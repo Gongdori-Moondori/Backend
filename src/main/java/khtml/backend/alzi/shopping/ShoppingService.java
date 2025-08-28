@@ -2,7 +2,13 @@ package khtml.backend.alzi.shopping;
 
 import java.math.BigDecimal;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
+import java.util.stream.Collectors;
+import java.math.RoundingMode;
+import java.time.LocalDate;
+import java.time.LocalDateTime;
+import java.util.Comparator;
 
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -394,5 +400,201 @@ public class ShoppingService {
 		private int plannedItems;
 		private int cancelledItems;
 		private double completionRate; // 완료율 (%)
+	}
+
+	/**
+	 * 자주 구매한 상품 조회 (상위 5개)
+	 */
+	@Transactional(readOnly = true)
+	public List<FrequentItemResponse> getFrequentItems(User user) {
+		log.info("사용자 {} 자주 구매한 상품 분석 시작", user.getUserId());
+
+		try {
+			// 사용자의 모든 구매 완료 기록 조회
+			List<ShoppingRecord> purchasedRecords = shoppingRecordRepository
+				.findPurchasedRecordsByUser(user.getUserId());
+
+			if (purchasedRecords.isEmpty()) {
+				log.info("사용자 {} 구매 기록이 없습니다", user.getUserId());
+				return List.of();
+			}
+
+			// 아이템별로 구매 통계 계산
+			Map<String, FrequentItemStats> itemStatsMap = purchasedRecords.stream()
+				.collect(Collectors.groupingBy(
+					record -> record.getItem().getName(),
+					Collectors.collectingAndThen(
+						Collectors.toList(),
+						records -> calculateItemStatistics(records)
+					)
+				));
+
+			// 구매 횟수 기준으로 정렬하여 상위 5개 선택
+			List<FrequentItemResponse> frequentItems = itemStatsMap.entrySet().stream()
+				.sorted((entry1, entry2) -> {
+					FrequentItemStats stats1 = entry1.getValue();
+					FrequentItemStats stats2 = entry2.getValue();
+					
+					// 1차: 구매 횟수 내림차순
+					int compareCount = Integer.compare(stats2.getPurchaseCount(), stats1.getPurchaseCount());
+					if (compareCount != 0) return compareCount;
+					
+					// 2차: 총 구매량 내림차순
+					int compareQuantity = Integer.compare(stats2.getTotalQuantity(), stats1.getTotalQuantity());
+					if (compareQuantity != 0) return compareQuantity;
+					
+					// 3차: 마지막 구매일 내림차순 (최근 구매 우선)
+					return stats2.getLastPurchaseDate().compareTo(stats1.getLastPurchaseDate());
+				})
+				.limit(5)
+				.map(entry -> {
+					String itemName = entry.getKey();
+					FrequentItemStats stats = entry.getValue();
+					
+					return FrequentItemResponse.builder()
+						.itemName(itemName)
+						.category(stats.getCategory())
+						.purchaseCount(stats.getPurchaseCount())
+						.totalQuantity(stats.getTotalQuantity())
+						.averageQuantityPerPurchase(stats.getAverageQuantityPerPurchase())
+						.averagePrice(stats.getAveragePrice())
+						.totalSpent(stats.getTotalSpent())
+						.lastPurchaseDate(stats.getLastPurchaseDate())
+						.daysSinceLastPurchase(stats.getDaysSinceLastPurchase())
+						.isSeasonalItem(seasonalRecommendationUtil.isCurrentlyInSeason(itemName))
+						.purchaseFrequency(calculatePurchaseFrequency(stats))
+						.recommendation(generateItemRecommendation(stats, itemName))
+						.build();
+				})
+				.collect(Collectors.toList());
+
+			log.info("사용자 {} 자주 구매한 상품 분석 완료 - {}개 상품", user.getUserId(), frequentItems.size());
+			return frequentItems;
+
+		} catch (Exception e) {
+			log.error("자주 구매한 상품 조회 실패: {}", e.getMessage(), e);
+			return List.of();
+		}
+	}
+
+	/**
+	 * 아이템별 구매 통계 계산
+	 */
+	private FrequentItemStats calculateItemStatistics(List<ShoppingRecord> records) {
+		if (records.isEmpty()) {
+			return new FrequentItemStats();
+		}
+
+		ShoppingRecord latestRecord = records.stream()
+			.max(Comparator.comparing(ShoppingRecord::getPurchasedAt))
+			.orElse(records.get(0));
+
+		int purchaseCount = records.size();
+		int totalQuantity = records.stream().mapToInt(ShoppingRecord::getQuantity).sum();
+		double averageQuantity = (double) totalQuantity / purchaseCount;
+
+		// 유효한 가격이 있는 기록들만 사용
+		List<BigDecimal> validPrices = records.stream()
+			.map(ShoppingRecord::getUnitPrice)
+			.filter(price -> price != null && price.compareTo(BigDecimal.ZERO) > 0)
+			.collect(Collectors.toList());
+
+		BigDecimal averagePrice = BigDecimal.ZERO;
+		BigDecimal totalSpent = BigDecimal.ZERO;
+
+		if (!validPrices.isEmpty()) {
+			BigDecimal priceSum = validPrices.stream().reduce(BigDecimal.ZERO, BigDecimal::add);
+			averagePrice = priceSum.divide(BigDecimal.valueOf(validPrices.size()), 0, RoundingMode.HALF_UP);
+			
+			totalSpent = records.stream()
+				.map(ShoppingRecord::getPrice)
+				.filter(price -> price != null && price.compareTo(BigDecimal.ZERO) > 0)
+				.reduce(BigDecimal.ZERO, BigDecimal::add);
+		}
+
+		LocalDateTime lastPurchase = latestRecord.getPurchasedAt();
+		long daysSinceLastPurchase = lastPurchase != null ? 
+			java.time.temporal.ChronoUnit.DAYS.between(lastPurchase.toLocalDate(), LocalDate.now()) : 0;
+
+		return FrequentItemStats.builder()
+			.category(latestRecord.getItem().getCategory())
+			.purchaseCount(purchaseCount)
+			.totalQuantity(totalQuantity)
+			.averageQuantityPerPurchase(averageQuantity)
+			.averagePrice(averagePrice)
+			.totalSpent(totalSpent)
+			.lastPurchaseDate(lastPurchase)
+			.daysSinceLastPurchase((int) daysSinceLastPurchase)
+			.build();
+	}
+
+	/**
+	 * 구매 빈도 계산
+	 */
+	private String calculatePurchaseFrequency(FrequentItemStats stats) {
+		if (stats.getDaysSinceLastPurchase() <= 7) {
+			return "매우 높음";
+		} else if (stats.getDaysSinceLastPurchase() <= 30) {
+			return "높음";
+		} else if (stats.getDaysSinceLastPurchase() <= 90) {
+			return "보통";
+		} else {
+			return "낮음";
+		}
+	}
+
+	/**
+	 * 아이템 추천 메시지 생성
+	 */
+	private String generateItemRecommendation(FrequentItemStats stats, String itemName) {
+		StringBuilder recommendation = new StringBuilder();
+
+		if (stats.getDaysSinceLastPurchase() <= 7) {
+			recommendation.append("최근에 구매한 단골 아이템입니다");
+		} else if (stats.getDaysSinceLastPurchase() <= 30) {
+			recommendation.append("자주 구매하는 아이템입니다");
+		} else if (stats.getDaysSinceLastPurchase() <= 90) {
+			recommendation.append("다시 구매할 시기가 되었습니다");
+		} else {
+			recommendation.append("오랫동안 구매하지 않은 아이템입니다");
+		}
+
+		// 제철 아이템인 경우 추가 정보
+		if (seasonalRecommendationUtil.isCurrentlyInSeason(itemName)) {
+			recommendation.append(" (현재 제철!)");
+		}
+
+		return recommendation.toString();
+	}
+
+	// DTO 클래스들
+	@lombok.Data
+	@lombok.Builder
+	public static class FrequentItemResponse {
+		private String itemName;                    // 아이템명
+		private String category;                    // 카테고리
+		private int purchaseCount;                  // 구매 횟수
+		private int totalQuantity;                  // 총 구매량
+		private double averageQuantityPerPurchase;  // 회당 평균 구매량
+		private BigDecimal averagePrice;            // 평균 구매 가격
+		private BigDecimal totalSpent;              // 총 지출 금액
+		private LocalDateTime lastPurchaseDate;     // 마지막 구매일
+		private int daysSinceLastPurchase;          // 마지막 구매 후 경과 일수
+		private boolean isSeasonalItem;             // 현재 제철 여부
+		private String purchaseFrequency;           // 구매 빈도 ("매우 높음", "높음", "보통", "낮음")
+		private String recommendation;              // 추천 메시지
+	}
+
+	@lombok.Data
+	@lombok.Builder
+	private static class FrequentItemStats {
+		private String category;
+		private int purchaseCount;
+		private int totalQuantity;
+		private double averageQuantityPerPurchase;
+		private BigDecimal averagePrice;
+		private BigDecimal totalSpent;
+		private LocalDateTime lastPurchaseDate;
+		private int daysSinceLastPurchase;
 	}
 }

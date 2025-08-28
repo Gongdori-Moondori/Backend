@@ -61,4 +61,13 @@ public interface ShoppingRecordRepository extends JpaRepository<ShoppingRecord, 
     Optional<ShoppingRecord> findByIdAndShoppingListAndUser(@Param("recordId") Long recordId, 
                                                            @Param("shoppingList") ShoppingList shoppingList,
                                                            @Param("user") User user);
+    
+    // 특정 사용자의 모든 구매 완료 기록 조회 (자주 구매한 상품 분석용)
+    @Query("SELECT sr FROM ShoppingRecord sr " +
+           "JOIN FETCH sr.item " +
+           "JOIN sr.shoppingList sl " +
+           "WHERE sl.user.userId = :userId " +
+           "AND sr.status = 'PURCHASED' " +
+           "ORDER BY sr.purchasedAt DESC")
+    List<ShoppingRecord> findPurchasedRecordsByUser(@Param("userId") Long userId);
 }

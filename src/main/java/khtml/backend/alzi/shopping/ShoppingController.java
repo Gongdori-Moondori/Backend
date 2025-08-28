@@ -206,4 +206,32 @@ public class ShoppingController {
 				.body(ApiResponse.failure("STATISTICS_FAILED", "장바구니 통계 조회 중 오류가 발생했습니다: " + e.getMessage()));
 		}
 	}
+
+	@GetMapping("/frequent-items")
+	@Operation(
+		summary = "자주 구매한 상품 조회", 
+		description = "사용자가 자주 구매한 상품 5개를 조회합니다. " +
+					 "구매 횟수, 총 구매량, 평균 가격, 마지막 구매일 등의 정보를 제공합니다."
+	)
+	public ResponseEntity<ApiResponse<List<ShoppingService.FrequentItemResponse>>> getFrequentItems() {
+
+		User user = SecurityUtils.getCurrentUser();
+		log.info("자주 구매한 상품 조회 - 사용자: {}", user.getUserId());
+
+		try {
+			List<ShoppingService.FrequentItemResponse> frequentItems = shoppingService.getFrequentItems(user);
+			
+			if (frequentItems.isEmpty()) {
+				return ResponseEntity.ok(ApiResponse.success("구매 기록이 없습니다.", frequentItems));
+			}
+
+			String message = String.format("자주 구매한 상품 %d개를 조회했습니다.", frequentItems.size());
+			return ResponseEntity.ok(ApiResponse.success(message, frequentItems));
+
+		} catch (Exception e) {
+			log.error("자주 구매한 상품 조회 중 오류 발생", e);
+			return ResponseEntity.badRequest()
+				.body(ApiResponse.failure("FREQUENT_ITEMS_FAILED", "자주 구매한 상품 조회 중 오류가 발생했습니다: " + e.getMessage()));
+		}
+	}
 }
