@@ -129,53 +129,125 @@ public class MarketService {
 
 		// 3. 아이템별로 그룹화 (null 체크 추가)
 		Map<String, List<PriceData>> priceDataByItem = priceDataList.stream()
-				.filter(pd -> pd.getItemName() != null && !pd.getItemName().trim().isEmpty())
-				.filter(pd -> !pd.getPrice().equals("0"))
-				.collect(Collectors.groupingBy(PriceData::getItemName));
+			.filter(pd -> pd.getItemName() != null && !pd.getItemName().trim().isEmpty())
+			.filter(pd -> !pd.getPrice().equals("0"))
+			.collect(Collectors.groupingBy(PriceData::getItemName));
 
 		Map<String, List<ItemPrice>> itemPriceByItem = itemPriceList.stream()
-				.filter(ip -> ip.getItem() != null && ip.getItem().getName() != null && !ip.getItem().getName().trim().isEmpty())
-				.filter(ip -> !Objects.equals(ip.getPrice(), BigDecimal.ZERO))
-				.collect(Collectors.groupingBy(item -> item.getItem().getName()));
+			.filter(ip -> ip.getItem() != null && ip.getItem().getName() != null && !ip.getItem()
+				.getName()
+				.trim()
+				.isEmpty())
+			.filter(ip -> !Objects.equals(ip.getPrice(), BigDecimal.ZERO))
+			.collect(Collectors.groupingBy(item -> item.getItem().getName()));
 
 		// 4. 모든 고유한 아이템명 수집 (null 체크 추가)
 		List<String> allItemNames = new ArrayList<>();
 		allItemNames.addAll(priceDataByItem.keySet());
 		itemPriceByItem.keySet().stream()
-				.filter(itemName -> itemName != null && !itemName.trim().isEmpty())
-				.filter(itemName -> !allItemNames.contains(itemName))
-				.forEach(allItemNames::add);
+			.filter(itemName -> itemName != null && !itemName.trim().isEmpty())
+			.filter(itemName -> !allItemNames.contains(itemName))
+			.forEach(allItemNames::add);
 
 		// 5. 아이템별로 응답 데이터 생성
 		List<MarketItemPriceResponse> responseList = allItemNames.stream()
-				.map(itemName -> {
-					List<PriceData> itemPriceDataList = priceDataByItem.getOrDefault(itemName, new ArrayList<>());
-					List<ItemPrice> itemCurrentPriceList = itemPriceByItem.getOrDefault(itemName, new ArrayList<>());
+			.map(itemName -> {
+				List<PriceData> itemPriceDataList = priceDataByItem.getOrDefault(itemName, new ArrayList<>());
+				List<ItemPrice> itemCurrentPriceList = itemPriceByItem.getOrDefault(itemName, new ArrayList<>());
 
-					// 카테고리 정보 추출 (ItemPrice가 있으면 그것에서, 없으면 null)
-					String category = itemCurrentPriceList.stream()
-							.findFirst()
-							.map(ip -> ip.getItem().getCategory())
-							.orElse(null);
+				// 카테고리 정보 추출 (ItemPrice가 있으면 그것에서, 없으면 null)
+				String category = itemCurrentPriceList.stream()
+					.findFirst()
+					.map(ip -> ip.getItem().getCategory())
+					.orElse(null);
 
-					return MarketItemPriceResponse.builder()
-							.marketName(marketName)
-							.itemName(itemName)
-							.category(category)
-							.priceDataList(itemPriceDataList.stream()
-									.map(MarketItemPriceResponse.PriceDataInfo::from)
-									.collect(Collectors.toList()))
-							.itemPriceList(itemCurrentPriceList.stream()
-									.map(MarketItemPriceResponse.ItemPriceInfo::from)
-									.collect(Collectors.toList()))
-							.build();
-				})
-				.collect(Collectors.toList());
+				return MarketItemPriceResponse.builder()
+					.marketName(marketName)
+					.itemName(itemName)
+					.category(category)
+					.priceDataList(itemPriceDataList.stream()
+						.map(MarketItemPriceResponse.PriceDataInfo::from)
+						.collect(Collectors.toList()))
+					.itemPriceList(itemCurrentPriceList.stream()
+						.map(MarketItemPriceResponse.ItemPriceInfo::from)
+						.collect(Collectors.toList()))
+					.build();
+			})
+			.collect(Collectors.toList());
 
 		log.info("시장 '{}' 아이템 가격 정보 조회 완료 - 아이템 수: {}, PriceData: {}건, ItemPrice: {}건",
-				marketName, responseList.size(), priceDataList.size(), itemPriceList.size());
+			marketName, responseList.size(), priceDataList.size(), itemPriceList.size());
 
 		return responseList;
+	}
+
+	/**
+	 * 특정 시장의 모든 아이템에 대한 과거/현재 가격 정보를 조회
+	 */
+	@Transactional(readOnly = true)
+	public List<PricePredictionUtil.PriceAnalysis> getPredictMarketItemPrices(String marketName) {
+		log.info("시장 '{}' 아이템 가격 정보 조회 시작", marketName);
+
+		// 1. PriceData에서 해당 시장의 모든 데이터 조회
+		List<PriceData> priceDataList = priceDataRepository.findByMarketNameOrderByDateDesc(marketName);
+
+		// 2. ItemPrice에서 해당 시장의 모든 데이터 조회 (Market 엔터티를 통해)
+		List<ItemPrice> itemPriceList = itemPriceRepository.findByMarketNameOrderBySurveyDateDesc(marketName);
+
+		// 3. 아이템별로 그룹화 (null 체크 추가)
+		Map<String, List<PriceData>> priceDataByItem = priceDataList.stream()
+			.filter(pd -> pd.getItemName() != null && !pd.getItemName().trim().isEmpty())
+			.filter(pd -> !pd.getPrice().equals("0"))
+			.collect(Collectors.groupingBy(PriceData::getItemName));
+
+		Map<String, List<ItemPrice>> itemPriceByItem = itemPriceList.stream()
+			.filter(ip -> ip.getItem() != null && ip.getItem().getName() != null && !ip.getItem()
+				.getName()
+				.trim()
+				.isEmpty())
+			.filter(ip -> !Objects.equals(ip.getPrice(), BigDecimal.ZERO))
+			.collect(Collectors.groupingBy(item -> item.getItem().getName()));
+
+		// 4. 모든 고유한 아이템명 수집 (null 체크 추가)
+		List<String> allItemNames = new ArrayList<>();
+		allItemNames.addAll(priceDataByItem.keySet());
+		itemPriceByItem.keySet().stream()
+			.filter(itemName -> itemName != null && !itemName.trim().isEmpty())
+			.filter(itemName -> !allItemNames.contains(itemName))
+			.forEach(allItemNames::add);
+
+		// 5. 아이템별로 응답 데이터 생성
+		List<MarketItemPriceResponse> responseList = allItemNames.stream()
+			.map(itemName -> {
+				List<PriceData> itemPriceDataList = priceDataByItem.getOrDefault(itemName, new ArrayList<>());
+				List<ItemPrice> itemCurrentPriceList = itemPriceByItem.getOrDefault(itemName, new ArrayList<>());
+
+				// 카테고리 정보 추출 (ItemPrice가 있으면 그것에서, 없으면 null)
+				String category = itemCurrentPriceList.stream()
+					.findFirst()
+					.map(ip -> ip.getItem().getCategory())
+					.orElse(null);
+
+				return MarketItemPriceResponse.builder()
+					.marketName(marketName)
+					.itemName(itemName)
+					.category(category)
+					.priceDataList(itemPriceDataList.stream()
+						.map(MarketItemPriceResponse.PriceDataInfo::from)
+						.collect(Collectors.toList()))
+					.itemPriceList(itemCurrentPriceList.stream()
+						.map(MarketItemPriceResponse.ItemPriceInfo::from)
+						.collect(Collectors.toList()))
+					.build();
+			})
+			.collect(Collectors.toList());
+
+		log.info("시장 '{}' 아이템 가격 정보 조회 완료 - 아이템 수: {}, PriceData: {}건, ItemPrice: {}건",
+			marketName, responseList.size(), priceDataList.size(), itemPriceList.size());
+		return responseList.stream()
+			.map(response -> pricePredictionUtil.analyzePriceHistory(response.getItemName(),
+				response.getPriceDataList()))
+			.toList();
 	}
 
 	/**

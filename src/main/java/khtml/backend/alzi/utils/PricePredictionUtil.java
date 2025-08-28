@@ -18,6 +18,7 @@ public class PricePredictionUtil {
     
     @Data
     public static class PriceAnalysis {
+        private String name;
         private BigDecimal currentPrice;
         private BigDecimal averagePrice;
         private BigDecimal medianPrice;
@@ -35,18 +36,16 @@ public class PricePredictionUtil {
     /**
      * 특정 아이템의 가격 분석 및 예측
      */
-    public PriceAnalysis analyzePriceHistory(List<MarketItemPriceResponse.PriceDataInfo> priceHistory) {
+    public PriceAnalysis analyzePriceHistory(String name, List<MarketItemPriceResponse.PriceDataInfo> priceHistory) {
         if (priceHistory == null || priceHistory.isEmpty()) {
             return null;
         }
-        
         // 날짜순 정렬 (최신순)
         List<MarketItemPriceResponse.PriceDataInfo> sortedPrices = priceHistory.stream()
                 .sorted(Comparator.comparing(MarketItemPriceResponse.PriceDataInfo::getDate).reversed())
                 .toList();
         
         PriceAnalysis analysis = new PriceAnalysis();
-        
         // 기본 통계
         analysis.setCurrentPrice(sortedPrices.get(0).getPriceAsBigDecimal());
         analysis.setAveragePrice(calculateAverage(sortedPrices));
@@ -71,7 +70,7 @@ public class PricePredictionUtil {
         String[] recommendation = generateRecommendation(analysis);
         analysis.setRecommendation(recommendation[0]);
         analysis.setConfidence(Double.parseDouble(recommendation[1]));
-        
+        analysis.setName(name);
         return analysis;
     }
     
