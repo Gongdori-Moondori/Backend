@@ -21,7 +21,9 @@ public interface ItemRepository extends JpaRepository<Item, Long> {
     
     @Query("SELECT DISTINCT i.category FROM Item i WHERE i.category IS NOT NULL ORDER BY i.category")
     List<String> findAllCategories();
-    
+
+    boolean existsByName(String name);
+
     // 사용자별 구매 빈도가 높은 아이템 조회
     @Query("SELECT i FROM Item i " +
            "JOIN i.shoppingRecords sr " +

@@ -20,6 +20,7 @@ import org.springframework.web.client.RestTemplate;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 
@@ -165,6 +166,55 @@ public class SeoulOpenApiService {
         }
         
         log.info("전체 아이템 가격 업데이트 완료 - 총 {}개 요청 (성공: {}, 실패: {})", 
+                totalRequests, successCount, failCount);
+    }
+
+    /**
+     * DB에 등록된 모든 아이템에 대해 모든 시장의 가격 정보를 업데이트 (PriceData에서 실제 시장명 사용)
+     * 트랜잭션을 작은 단위로 나누어 처리
+     */
+    public void updateAllItemPricesMart(String yearMonth) {
+        List<Item> items = itemRepository.findAll();
+        List<String> marketNames = new ArrayList<>();
+        marketNames.add("이마트 가양점");
+
+        log.info("전체 아이템 가격 업데이트 시작 - 아이템: {}개, 시장: {}개", items.size(), marketNames.size());
+
+        int successCount = 0;
+        int failCount = 0;
+        int totalRequests = items.size() * marketNames.size();
+
+        for (Item item : items) {
+            for (String marketName : marketNames) {
+                try {
+                    // 각 요청을 별도 트랜잭션으로 처리
+                    updateSingleItemPrice(marketName, item.getName(), yearMonth);
+                    successCount++;
+
+                } catch (Exception e) {
+                    failCount++;
+                    log.warn("아이템 '{}', 시장 '{}' 가격 정보 업데이트 실패: {}",
+                            item.getName(), marketName, e.getMessage());
+                }
+
+                // 진행상황 로그 (100개마다)
+                if ((successCount + failCount) % 100 == 0) {
+                    log.info("진행상황: {}/{} (성공: {}, 실패: {})",
+                            successCount + failCount, totalRequests, successCount, failCount);
+                }
+
+                // API 호출 간격 조절 (Rate Limiting 방지)
+                try {
+                    Thread.sleep(200);
+                } catch (InterruptedException ie) {
+                    Thread.currentThread().interrupt();
+                    log.warn("스레드 인터럽트 발생");
+                    return;
+                }
+            }
+        }
+
+        log.info("전체 아이템 가격 업데이트 완료 - 총 {}개 요청 (성공: {}, 실패: {})",
                 totalRequests, successCount, failCount);
     }
     

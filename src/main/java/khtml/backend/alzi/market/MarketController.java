@@ -129,6 +129,26 @@ public class MarketController {
 		}
 	}
 
+	@PostMapping("/update-all-items-mart")
+	@Operation(summary = "모든 아이템 가격 정보 업데이트",
+		description = "DB에 등록된 모든 아이템에 대해 모든 시장의 가격 정보를 업데이트합니다. 시간이 오래 걸릴 수 있습니다.")
+	public ApiResponse<?> updateAllItemPricesMart(
+		@Parameter(description = "조사년월 (YYYY-MM)") @RequestParam String yearMonth) {
+
+		try {
+			log.info("모든 아이템 가격 정보 업데이트 요청 - 년월: {}", yearMonth);
+
+			seoulOpenApiService.updateAllItemPricesMart(yearMonth);
+
+			return ApiResponse.success("모든 아이템의 가격 정보 업데이트가 완료되었습니다.");
+
+		} catch (Exception e) {
+			log.error("모든 아이템 가격 정보 업데이트 실패: {}", e.getMessage(), e);
+			return ApiResponse.failure("ALL_ITEMS_PRICE_UPDATE_FAILED",
+				"모든 아이템 가격 정보 업데이트 중 오류가 발생했습니다: " + e.getMessage());
+		}
+	}
+
 	@PostMapping("/update-market-items")
 	@Operation(summary = "특정 시장 모든 아이템 가격 업데이트",
 		description = "특정 시장에 대해 DB에 등록된 모든 아이템의 가격 정보를 업데이트합니다.")

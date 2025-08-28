@@ -52,4 +52,12 @@ public interface ItemPriceRepository extends JpaRepository<ItemPrice, Long> {
     
     // 특정 아이템, 시장, 날짜로 가격 정보 조회 (API 업데이트용)
     Optional<ItemPrice> findByItemAndMarketAndSurveyDate(Item item, Market market, LocalDate surveyDate);
+    
+    // 아이템명으로 모든 가격 정보 조회 (절약 분석용)
+    @Query("SELECT ip FROM ItemPrice ip WHERE ip.item.name = :itemName")
+    List<ItemPrice> findAllByItemName(@Param("itemName") String itemName);
+    
+    // 특정 마트와 아이템명으로 가격 정보 조회 (시장 vs 마트 비교용)
+    @Query("SELECT ip FROM ItemPrice ip WHERE ip.market.name = :marketName AND ip.item.name = :itemName ORDER BY ip.surveyDate DESC, ip.updatedAt DESC")
+    List<ItemPrice> findByMarketNameAndItemName(@Param("marketName") String marketName, @Param("itemName") String itemName);
 }
