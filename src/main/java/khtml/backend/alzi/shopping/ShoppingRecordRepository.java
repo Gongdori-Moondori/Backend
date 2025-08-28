@@ -69,5 +69,5 @@ public interface ShoppingRecordRepository extends JpaRepository<ShoppingRecord, 
            "WHERE sl.user.userId = :userId " +
            "AND sr.status = 'PURCHASED' " +
            "ORDER BY sr.purchasedAt DESC")
-    List<ShoppingRecord> findPurchasedRecordsByUser(@Param("userId") Long userId);
+    List<ShoppingRecord> findPurchasedRecordsByUser(@Param("userId") String userId);
 }

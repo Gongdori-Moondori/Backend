@@ -18,6 +18,7 @@ import khtml.backend.alzi.priceData.PriceDataRepository;
 import khtml.backend.alzi.shopping.dto.CreateShoppingListRequest;
 import khtml.backend.alzi.shopping.dto.ShoppingListResponse;
 import khtml.backend.alzi.utils.ItemCategoryUtil;
+import khtml.backend.alzi.utils.SeasonalRecommendationUtil;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 
@@ -31,6 +32,7 @@ public class ShoppingService {
 	private final ItemPriceRepository itemPriceRepository;
 	private final PriceDataRepository priceDataRepository;
 	private final ItemCategoryUtil itemCategoryUtil;
+	private final SeasonalRecommendationUtil seasonalRecommendationUtil;
 
 	@Transactional
 	public ShoppingListResponse createShoppingList(CreateShoppingListRequest request, User user) {
@@ -482,7 +484,16 @@ public class ShoppingService {
 	 */
 	private FrequentItemStats calculateItemStatistics(List<ShoppingRecord> records) {
 		if (records.isEmpty()) {
-			return new FrequentItemStats();
+			return FrequentItemStats.builder()
+				.category("기타")
+				.purchaseCount(0)
+				.totalQuantity(0)
+				.averageQuantityPerPurchase(0.0)
+				.averagePrice(BigDecimal.ZERO)
+				.totalSpent(BigDecimal.ZERO)
+				.lastPurchaseDate(LocalDateTime.now())
+				.daysSinceLastPurchase(999)
+				.build();
 		}
 
 		ShoppingRecord latestRecord = records.stream()
@@ -587,6 +598,8 @@ public class ShoppingService {
 
 	@lombok.Data
 	@lombok.Builder
+	@lombok.NoArgsConstructor
+	@lombok.AllArgsConstructor
 	private static class FrequentItemStats {
 		private String category;
 		private int purchaseCount;
