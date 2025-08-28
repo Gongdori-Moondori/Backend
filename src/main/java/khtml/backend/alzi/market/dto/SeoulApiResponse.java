@@ -19,7 +19,7 @@ public class SeoulApiResponse {
     @JacksonXmlProperty(localName = "RESULT")
     private ApiResult result;
     
-    @JacksonXmlElementWrapper(localName = "row")
+    @JacksonXmlElementWrapper(useWrapping = false)
     @JacksonXmlProperty(localName = "row")
     private List<PriceInfo> priceInfos;
     
@@ -36,34 +36,46 @@ public class SeoulApiResponse {
     @Data
     @NoArgsConstructor
     public static class PriceInfo {
+        @JacksonXmlProperty(localName = "P_SEQ")
+        private Long priceSeq; // 가격일련번호
+        
         @JacksonXmlProperty(localName = "P_YEAR_MONTH")
-        private String yearMonth; // 조사년월 (예: 202508)
-        
-        @JacksonXmlProperty(localName = "M_NAME")
-        private String marketName; // 시장명 (예: 하나로마트)
-        
-        @JacksonXmlProperty(localName = "M_TYPE_CODE")
-        private String marketTypeCode; // 시장유형코드 (03: 대형마트)
-        
-        @JacksonXmlProperty(localName = "M_TYPE_NAME")
-        private String marketTypeName; // 시장유형명 (대형마트)
+        private String yearMonth; // 조사년월 (예: 2025-08)
         
         @JacksonXmlProperty(localName = "M_SEQ")
-        private String marketSeq; // 시장일련번호
+        private Long marketSeq; // 시장일련번호
+        
+        @JacksonXmlProperty(localName = "M_NAME")
+        private String marketName; // 시장명 (예: 경동시장)
+        
+        @JacksonXmlProperty(localName = "M_TYPE_CODE")
+        private String marketTypeCode; // 시장유형코드 (001)
+        
+        @JacksonXmlProperty(localName = "M_TYPE_NAME")
+        private String marketTypeName; // 시장유형명 (전통시장)
+        
+        @JacksonXmlProperty(localName = "M_GU_CODE")
+        private String districtCode; // 구코드 (230000)
+        
+        @JacksonXmlProperty(localName = "M_GU_NAME")
+        private String districtName; // 구이름 (동대문구)
+        
+        @JacksonXmlProperty(localName = "A_SEQ")
+        private Long itemSeq; // 품목일련번호
         
         @JacksonXmlProperty(localName = "A_NAME")
-        private String itemName; // 품목명 (예: 사과)
+        private String itemName; // 품목명 (예: 감자 100g)
         
         @JacksonXmlProperty(localName = "A_UNIT")
         private String itemUnit; // 단위 (예: 개)
         
         @JacksonXmlProperty(localName = "A_PRICE")
-        private String price; // 가격 (예: 3000)
+        private String price; // 가격 (예: 240)
         
         @JacksonXmlProperty(localName = "ADD_COL")
-        private String additionalInfo; // 추가정보 (예: 5개10000)
+        private String additionalInfo; // 추가정보
         
         @JacksonXmlProperty(localName = "P_DATE")
-        private String priceDate; // 가격조사일 (예: 20250815)
+        private String priceDate; // 가격조사일 (예: 2025-08-26)
     }
 }
