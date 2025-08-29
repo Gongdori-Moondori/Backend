@@ -30,32 +30,32 @@ public class AuthController {
 	private final JwtTokenProvider jwtTokenProvider;
 	private final UserRepository userRepository;
 
-	@GetMapping("/login")
-	@Operation(summary = "로그인 페이지", description = "소셜 로그인 페이지를 반환합니다.")
-	public String loginPage(Model model) {
-		log.info("로그인 페이지 요청");
-		return "login";
-	}
-
-	@GetMapping("/")
-	public String home(Model model) {
-		log.info("홈 페이지 요청");
-		return "index";
-	}
-
-	@GetMapping("/oauth2/redirect")
-	@Operation(summary = "OAuth2 리다이렉트", description = "OAuth2 로그인 성공 후 리다이렉트 페이지")
-	public String oauth2Redirect(Model model,
-		@RequestParam(required = false) String token,
-		@RequestParam(required = false) String refresh) {
-		log.info("OAuth2 리다이렉트 요청 - token: {}, refresh: {}",
-			token != null ? "있음" : "없음",
-			refresh != null ? "있음" : "없음");
-
-		model.addAttribute("token", token);
-		model.addAttribute("refresh", refresh);
-		return "oauth2-redirect";
-	}
+	// @GetMapping("/login")
+	// @Operation(summary = "로그인 페이지", description = "소셜 로그인 페이지를 반환합니다.")
+	// public String loginPage(Model model) {
+	// 	log.info("로그인 페이지 요청");
+	// 	return "login";
+	// }
+	//
+	// @GetMapping("/")
+	// public String home(Model model) {
+	// 	log.info("홈 페이지 요청");
+	// 	return "index";
+	// }
+	//
+	// @GetMapping("/oauth2/redirect")
+	// @Operation(summary = "OAuth2 리다이렉트", description = "OAuth2 로그인 성공 후 리다이렉트 페이지")
+	// public String oauth2Redirect(Model model,
+	// 	@RequestParam(required = false) String token,
+	// 	@RequestParam(required = false) String refresh) {
+	// 	log.info("OAuth2 리다이렉트 요청 - token: {}, refresh: {}",
+	// 		token != null ? "있음" : "없음",
+	// 		refresh != null ? "있음" : "없음");
+	//
+	// 	model.addAttribute("token", token);
+	// 	model.addAttribute("refresh", refresh);
+	// 	return "oauth2-redirect";
+	// }
 
 	@PostMapping("/api/auth/refresh")
 	@ResponseBody
@@ -99,17 +99,17 @@ public class AuthController {
 		}
 	}
 
-	@GetMapping("/api/auth/me")
-	@ResponseBody
-	@Operation(summary = "현재 사용자 정보", description = "현재 로그인된 사용자의 정보를 반환합니다.")
-	public ApiResponse<User> getCurrentUser() {
-		try {
-			// SecurityUtils를 사용하여 현재 사용자 정보 가져오기
-			// 현재 SecurityUtils에 문제가 있으므로 임시로 간단한 응답 반환
-			return ApiResponse.success("현재 사용자 정보 조회 성공", null);
-		} catch (Exception e) {
-			log.error("현재 사용자 정보 조회 실패: {}", e.getMessage(), e);
-			return ApiResponse.failure("USER_INFO_FAILED", "사용자 정보 조회에 실패했습니다.");
-		}
-	}
+	// @GetMapping("/api/auth/me")
+	// @ResponseBody
+	// @Operation(summary = "현재 사용자 정보", description = "현재 로그인된 사용자의 정보를 반환합니다.")
+	// public ApiResponse<User> getCurrentUser() {
+	// 	try {
+	// 		// SecurityUtils를 사용하여 현재 사용자 정보 가져오기
+	// 		// 현재 SecurityUtils에 문제가 있으므로 임시로 간단한 응답 반환
+	// 		return ApiResponse.success("현재 사용자 정보 조회 성공", null);
+	// 	} catch (Exception e) {
+	// 		log.error("현재 사용자 정보 조회 실패: {}", e.getMessage(), e);
+	// 		return ApiResponse.failure("USER_INFO_FAILED", "사용자 정보 조회에 실패했습니다.");
+	// 	}
+	// }
 }
