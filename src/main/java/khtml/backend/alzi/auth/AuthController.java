@@ -17,6 +17,7 @@ import khtml.backend.alzi.auth.jwt.JwtTokenProvider;
 import khtml.backend.alzi.auth.user.User;
 import khtml.backend.alzi.auth.user.UserRepository;
 import khtml.backend.alzi.utils.ApiResponse;
+import khtml.backend.alzi.utils.SecurityUtils;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 
@@ -99,17 +100,16 @@ public class AuthController {
 		}
 	}
 
-	// @GetMapping("/api/auth/me")
-	// @ResponseBody
-	// @Operation(summary = "현재 사용자 정보", description = "현재 로그인된 사용자의 정보를 반환합니다.")
-	// public ApiResponse<User> getCurrentUser() {
-	// 	try {
-	// 		// SecurityUtils를 사용하여 현재 사용자 정보 가져오기
-	// 		// 현재 SecurityUtils에 문제가 있으므로 임시로 간단한 응답 반환
-	// 		return ApiResponse.success("현재 사용자 정보 조회 성공", null);
-	// 	} catch (Exception e) {
-	// 		log.error("현재 사용자 정보 조회 실패: {}", e.getMessage(), e);
-	// 		return ApiResponse.failure("USER_INFO_FAILED", "사용자 정보 조회에 실패했습니다.");
-	// 	}
-	// }
+	@GetMapping("/api/auth")
+	@ResponseBody
+	@Operation(summary = "현재 사용자 정보", description = "현재 로그인된 사용자의 정보를 반환합니다.")
+	public ApiResponse<User> getCurrentUser() {
+		try {
+			User currentUser = SecurityUtils.getCurrentUser();
+			return ApiResponse.success("현재 사용자 정보 조회 성공", currentUser);
+		} catch (Exception e) {
+			log.error("현재 사용자 정보 조회 실패: {}", e.getMessage(), e);
+			return ApiResponse.failure("USER_INFO_FAILED", "사용자 정보 조회에 실패했습니다.");
+		}
+	}
 }
