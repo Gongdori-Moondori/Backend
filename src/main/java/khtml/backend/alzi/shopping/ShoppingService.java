@@ -703,6 +703,87 @@ public class ShoppingService {
 	}
 
 	/**
+	 * 장바구니를 완료 상태로 변경
+	 */
+	@Transactional
+	public CompleteShoppingListResponse completeShoppingList(Long shoppingListId, User user) {
+		log.info("장바구니 완료 처리 - 사용자: {}, 장바구니 ID: {}", user.getUserId(), shoppingListId);
+
+		try {
+			// 1. 장바구니 조회 및 권한 확인
+			ShoppingList shoppingList = shoppingListRepository.findByIdAndUser(shoppingListId, user)
+				.orElseThrow(() -> new IllegalArgumentException("해당 장바구니를 찾을 수 없습니다"));
+
+			// 2. 현재 상태 확인
+			if (shoppingList.getStatus() == ShoppingList.ShoppingListStatus.COMPLETED) {
+				return CompleteShoppingListResponse.builder()
+					.success(false)
+					.shoppingListId(shoppingListId)
+					.message("이미 완료된 장바구니입니다")
+					.build();
+			}
+
+			// 3. 장바구니의 아이템 통계 계산
+			List<ShoppingRecord> records = shoppingList.getShoppingRecords();
+			int totalItems = records.size();
+			long purchasedItems = records.stream()
+				.filter(record -> record.getStatus() == ShoppingRecord.PurchaseStatus.PURCHASED)
+				.count();
+			long plannedItems = records.stream()
+				.filter(record -> record.getStatus() == ShoppingRecord.PurchaseStatus.PLANNED)
+				.count();
+
+			// 4. 장바구니 상태를 COMPLETED로 변경
+			shoppingList.updateStatus(ShoppingList.ShoppingListStatus.COMPLETED);
+			shoppingListRepository.save(shoppingList);
+
+			log.info("장바구니 {} 완료 처리 성공 - 총 {}개 아이템 중 {}개 구매, {}개 미구매",
+				shoppingListId, totalItems, purchasedItems, plannedItems);
+
+			return CompleteShoppingListResponse.builder()
+				.success(true)
+				.shoppingListId(shoppingListId)
+				.totalItems(totalItems)
+				.purchasedItems((int)purchasedItems)
+				.remainingItems((int)plannedItems)
+				.completionRate(totalItems > 0 ? (double)purchasedItems / totalItems * 100 : 0.0)
+				.completedAt(shoppingList.getUpdatedAt())
+				.message(String.format("장바구니가 완료되었습니다 (구매: %d개, 미구매: %d개)",
+					purchasedItems, plannedItems))
+				.build();
+
+		} catch (Exception e) {
+			log.error("장바구니 완료 처리 실패: {}", e.getMessage(), e);
+			return CompleteShoppingListResponse.builder()
+				.success(false)
+				.shoppingListId(shoppingListId)
+				.message("장바구니 완료 처리 중 오류가 발생했습니다: " + e.getMessage())
+				.build();
+		}
+	}
+
+	/**
+	 * 현재 열린 장바구니를 완료 상태로 변경
+	 */
+	@Transactional
+	public CompleteShoppingListResponse completeCurrentShoppingList(User user) {
+		log.info("현재 장바구니 완료 처리 - 사용자: {}", user.getUserId());
+
+		// 1. 현재 열려있는 장바구니 찾기
+		Optional<ShoppingList> currentCartOpt = getCurrentOpenShoppingList(user);
+
+		if (currentCartOpt.isEmpty()) {
+			return CompleteShoppingListResponse.builder()
+				.success(false)
+				.message("열려있는 장바구니가 없습니다")
+				.build();
+		}
+
+		ShoppingList currentCart = currentCartOpt.get();
+		return completeShoppingList(currentCart.getId(), user);
+	}
+
+	/**
 	 * 현재 열려있는 장바구니에 아이템 추가 (없으면 새로 생성)
 	 */
 	@Transactional
@@ -989,6 +1070,19 @@ public class ShoppingService {
 	}
 
 	// === 새로운 DTO 클래스 ===
+
+	@lombok.Data
+	@lombok.Builder
+	public static class CompleteShoppingListResponse {
+		private boolean success;
+		private Long shoppingListId;
+		private int totalItems;
+		private int purchasedItems;         // 구매 완료된 아이템 수
+		private int remainingItems;         // 미구매 아이템 수
+		private double completionRate;      // 완료율 (%)
+		private LocalDateTime completedAt;  // 완료 시점
+		private String message;
+	}
 
 	@lombok.Data
 	@lombok.Builder

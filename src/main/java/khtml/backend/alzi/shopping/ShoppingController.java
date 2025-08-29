@@ -401,6 +401,62 @@ public class ShoppingController {
 		}
 	}
 
+	@PostMapping("/complete")
+	@Operation(
+		summary = "현재 장바구니 완료",
+		description = "현재 열려있는 장바구니를 완료 상태(COMPLETED)로 변경합니다."
+	)
+	public ResponseEntity<ApiResponse<ShoppingService.CompleteShoppingListResponse>> completeCurrentShoppingList() {
+
+		User user = SecurityUtils.getCurrentUser();
+		log.info("현재 장바구니 완료 요청 - 사용자: {}", user.getUserId());
+
+		try {
+			ShoppingService.CompleteShoppingListResponse response = shoppingService.completeCurrentShoppingList(user);
+
+			if (response.isSuccess()) {
+				return ResponseEntity.ok(ApiResponse.success(response.getMessage(), response));
+			} else {
+				return ResponseEntity.badRequest()
+					.body(ApiResponse.failure("COMPLETE_CART_FAILED", response.getMessage()));
+			}
+
+		} catch (Exception e) {
+			log.error("현재 장바구니 완료 중 오류 발생", e);
+			return ResponseEntity.badRequest()
+				.body(ApiResponse.failure("COMPLETE_CART_FAILED", "장바구니 완료 중 오류가 발생했습니다: " + e.getMessage()));
+		}
+	}
+
+	@PatchMapping("/lists/{shoppingListId}/complete")
+	@Operation(
+		summary = "특정 장바구니 완료",
+		description = "지정된 장바구니를 완료 상태(COMPLETED)로 변경합니다."
+	)
+	public ResponseEntity<ApiResponse<ShoppingService.CompleteShoppingListResponse>> completeShoppingList(
+		@Parameter(description = "완료할 장바구니 ID") @PathVariable Long shoppingListId) {
+
+		User user = SecurityUtils.getCurrentUser();
+		log.info("장바구니 완료 요청 - 사용자: {}, 장바구니 ID: {}", user.getUserId(), shoppingListId);
+
+		try {
+			ShoppingService.CompleteShoppingListResponse response = shoppingService.completeShoppingList(shoppingListId,
+				user);
+
+			if (response.isSuccess()) {
+				return ResponseEntity.ok(ApiResponse.success(response.getMessage(), response));
+			} else {
+				return ResponseEntity.badRequest()
+					.body(ApiResponse.failure("COMPLETE_CART_FAILED", response.getMessage()));
+			}
+
+		} catch (Exception e) {
+			log.error("장바구니 완료 중 오류 발생", e);
+			return ResponseEntity.badRequest()
+				.body(ApiResponse.failure("COMPLETE_CART_FAILED", "장바구니 완료 중 오류가 발생했습니다: " + e.getMessage()));
+		}
+	}
+
 	@GetMapping("/current")
 	@Operation(
 		summary = "현재 열린 장바구니 조회",
