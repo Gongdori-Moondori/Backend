@@ -7,6 +7,7 @@ import java.util.Set;
 
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.CrossOrigin;
+import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -23,6 +24,7 @@ import khtml.backend.alzi.auth.user.User;
 import khtml.backend.alzi.shopping.dto.AddItemToCartRequest;
 import khtml.backend.alzi.shopping.dto.CompleteItemsRequest;
 import khtml.backend.alzi.shopping.dto.CreateShoppingListRequest;
+import khtml.backend.alzi.shopping.dto.RemoveItemFromCartRequest;
 import khtml.backend.alzi.shopping.dto.ShoppingListResponse;
 import khtml.backend.alzi.shopping.dto.CategoryStatsResponse;
 import khtml.backend.alzi.utils.ApiResponse;
@@ -102,13 +104,13 @@ public class ShoppingController {
 		shoppingService.test();
 		return ApiResponse.success();
 	}
-	
+
 	@PostMapping("/admin/update-categories")
-	@Operation(summary = "아이템 카테고리 일괄 업데이트", 
-	           description = "기존 아이템들의 카테고리를 자동으로 분류하여 업데이트합니다. 카테고리가 null이거나 '기타'인 아이템들이 대상입니다.")
+	@Operation(summary = "아이템 카테고리 일괄 업데이트",
+		description = "기존 아이템들의 카테고리를 자동으로 분류하여 업데이트합니다. 카테고리가 null이거나 '기타'인 아이템들이 대상입니다.")
 	public ApiResponse<?> updateItemCategories() {
 		log.info("아이템 카테고리 일괄 업데이트 요청");
-		
+
 		try {
 			shoppingService.updateItemCategories();
 			return ApiResponse.success("아이템 카테고리가 성공적으로 업데이트되었습니다.");
@@ -117,7 +119,7 @@ public class ShoppingController {
 			return ApiResponse.failure("카테고리 업데이트 중 오류가 발생했습니다: " + e.getMessage());
 		}
 	}
-	
+
 	@GetMapping("/categories")
 	@Operation(summary = "모든 카테고리 목록 조회", description = "시스템에서 사용하는 모든 아이템 카테고리 목록을 조회합니다.")
 	public ResponseEntity<ApiResponse<Set<String>>> getAllCategories() {
@@ -127,27 +129,27 @@ public class ShoppingController {
 
 	@GetMapping("/categories/stats")
 	@Operation(
-		summary = "카테고리별 통계 조회", 
+		summary = "카테고리별 통계 조회",
 		description = "카테고리별 아이템 개수, 비율, 상위 아이템 목록 등의 통계 정보를 조회합니다."
 	)
 	public ResponseEntity<ApiResponse<CategoryStatsResponse>> getCategoryStats() {
 		log.info("카테고리별 통계 조회 요청");
-		
+
 		try {
 			CategoryStatsResponse stats = shoppingService.getCategoryStats();
-			
-			String message = String.format("총 %d개 카테고리, %d개 아이템의 통계를 조회했습니다.", 
+
+			String message = String.format("총 %d개 카테고리, %d개 아이템의 통계를 조회했습니다.",
 				stats.getTotalCategories(), stats.getTotalItems());
-			
+
 			return ResponseEntity.ok(ApiResponse.success(message, stats));
-			
+
 		} catch (Exception e) {
 			log.error("카테고리 통계 조회 중 오류 발생", e);
 			return ResponseEntity.badRequest()
 				.body(ApiResponse.failure("CATEGORY_STATS_FAILED", "카테고리 통계 조회 중 오류가 발생했습니다: " + e.getMessage()));
 		}
 	}
-	
+
 	@GetMapping("/categories/{category}/items")
 	@Operation(summary = "카테고리별 아이템 목록 조회", description = "특정 카테고리에 속하는 모든 아이템을 조회합니다.")
 	public ResponseEntity<ApiResponse<Set<String>>> getItemsByCategory(@PathVariable String category) {
@@ -161,16 +163,16 @@ public class ShoppingController {
 
 	@PatchMapping("/lists/{shoppingListId}/items/complete")
 	@Operation(
-		summary = "장바구니 아이템 구매 완료 처리", 
+		summary = "장바구니 아이템 구매 완료 처리",
 		description = "특정 장바구니에서 선택한 아이템들을 구매 완료 상태로 변경합니다. " +
-					 "아이템 ID 리스트를 받아서 해당 아이템들의 상태를 PURCHASED로 업데이트합니다."
+			"아이템 ID 리스트를 받아서 해당 아이템들의 상태를 PURCHASED로 업데이트합니다."
 	)
 	public ResponseEntity<ApiResponse<ShoppingListResponse>> completeShoppingItems(
 		@Parameter(description = "장바구니 ID") @PathVariable Long shoppingListId,
 		@Parameter(description = "완료 처리할 아이템 ID 리스트") @RequestBody CompleteItemsRequest request) {
 
 		User user = SecurityUtils.getCurrentUser();
-		log.info("장바구니 {} 아이템 구매 완료 처리 - 사용자: {}, 아이템 수: {}", 
+		log.info("장바구니 {} 아이템 구매 완료 처리 - 사용자: {}, 아이템 수: {}",
 			shoppingListId, user.getUserId(), request.getItemIds().size());
 
 		try {
@@ -189,7 +191,7 @@ public class ShoppingController {
 
 	@PatchMapping("/lists/{shoppingListId}/items/cancel")
 	@Operation(
-		summary = "장바구니 아이템 취소 처리", 
+		summary = "장바구니 아이템 취소 처리",
 		description = "특정 장바구니에서 선택한 아이템들을 취소 상태로 변경합니다."
 	)
 	public ResponseEntity<ApiResponse<ShoppingListResponse>> cancelShoppingItems(
@@ -197,11 +199,12 @@ public class ShoppingController {
 		@Parameter(description = "취소 처리할 아이템 ID 리스트") @RequestBody CompleteItemsRequest request) {
 
 		User user = SecurityUtils.getCurrentUser();
-		log.info("장바구니 {} 아이템 취소 처리 - 사용자: {}, 아이템 수: {}", 
+		log.info("장바구니 {} 아이템 취소 처리 - 사용자: {}, 아이템 수: {}",
 			shoppingListId, user.getUserId(), request.getItemIds().size());
 
 		try {
-			ShoppingListResponse response = shoppingService.cancelShoppingItems(shoppingListId, request.getItemIds(), user);
+			ShoppingListResponse response = shoppingService.cancelShoppingItems(shoppingListId, request.getItemIds(),
+				user);
 			return ResponseEntity.ok(ApiResponse.success("선택한 아이템들이 취소 처리되었습니다.", response));
 		} catch (IllegalArgumentException e) {
 			return ResponseEntity.badRequest()
@@ -215,7 +218,7 @@ public class ShoppingController {
 
 	@GetMapping("/lists/{shoppingListId}/statistics")
 	@Operation(
-		summary = "장바구니 통계 조회", 
+		summary = "장바구니 통계 조회",
 		description = "특정 장바구니의 완료/미완료 아이템 통계를 조회합니다."
 	)
 	public ResponseEntity<ApiResponse<ShoppingService.ShoppingListStatistics>> getShoppingListStatistics(
@@ -225,7 +228,8 @@ public class ShoppingController {
 		log.info("장바구니 {} 통계 조회 - 사용자: {}", shoppingListId, user.getUserId());
 
 		try {
-			ShoppingService.ShoppingListStatistics statistics = shoppingService.getShoppingListStatistics(shoppingListId, user);
+			ShoppingService.ShoppingListStatistics statistics = shoppingService.getShoppingListStatistics(
+				shoppingListId, user);
 			return ResponseEntity.ok(ApiResponse.success("장바구니 통계를 조회했습니다.", statistics));
 		} catch (IllegalArgumentException e) {
 			return ResponseEntity.badRequest()
@@ -239,9 +243,9 @@ public class ShoppingController {
 
 	@GetMapping("/frequent-items")
 	@Operation(
-		summary = "자주 구매한 상품 조회", 
+		summary = "자주 구매한 상품 조회",
 		description = "사용자가 자주 구매한 상품 5개를 조회합니다. " +
-					 "구매 횟수, 총 구매량, 평균 가격, 마지막 구매일 등의 정보를 제공합니다."
+			"구매 횟수, 총 구매량, 평균 가격, 마지막 구매일 등의 정보를 제공합니다."
 	)
 	public ResponseEntity<ApiResponse<List<ShoppingService.FrequentItemResponse>>> getFrequentItems() {
 
@@ -250,7 +254,7 @@ public class ShoppingController {
 
 		try {
 			List<ShoppingService.FrequentItemResponse> frequentItems = shoppingService.getFrequentItems(user);
-			
+
 			if (frequentItems.isEmpty()) {
 				return ResponseEntity.ok(ApiResponse.success("구매 기록이 없습니다.", frequentItems));
 			}
@@ -267,7 +271,7 @@ public class ShoppingController {
 
 	@GetMapping("/savings/statistics")
 	@Operation(
-		summary = "사용자 절약 통계 조회", 
+		summary = "사용자 절약 통계 조회",
 		description = "사용자의 총 절약 금액, 절약 횟수, 아이템별/시장별 절약 현황 등을 조회합니다."
 	)
 	public ResponseEntity<ApiResponse<SavingsService.UserSavingsStats>> getSavingsStatistics() {
@@ -277,10 +281,10 @@ public class ShoppingController {
 
 		try {
 			SavingsService.UserSavingsStats stats = shoppingService.getSavingsStatistics(user);
-			
-			String message = String.format("총 %d회 구매로 %d원 절약하셨습니다!", 
+
+			String message = String.format("총 %d회 구매로 %d원 절약하셨습니다!",
 				stats.getTotalSavingsCount(), stats.getTotalSavings().intValue());
-			
+
 			return ResponseEntity.ok(ApiResponse.success(message, stats));
 
 		} catch (Exception e) {
@@ -292,20 +296,20 @@ public class ShoppingController {
 
 	@PostMapping("/add-item")
 	@Operation(
-		summary = "현재 장바구니에 아이템 추가", 
+		summary = "현재 장바구니에 아이템 추가",
 		description = "현재 열려있는 장바구니에 아이템을 추가합니다. " +
-					 "열린 장바구니가 없으면 새로 생성하고, 이미 있는 아이템이면 수량을 추가합니다."
+			"열린 장바구니가 없으면 새로 생성하고, 이미 있는 아이템이면 수량을 추가합니다."
 	)
 	public ResponseEntity<ApiResponse<ShoppingService.AddItemToCartResponse>> addItemToCurrentCart(
-			@RequestBody AddItemToCartRequest request) {
+		@RequestBody AddItemToCartRequest request) {
 
 		User user = SecurityUtils.getCurrentUser();
-		log.info("현재 장바구니에 아이템 추가 - 사용자: {}, 아이템: {}, 수량: {}", 
+		log.info("현재 장바구니에 아이템 추가 - 사용자: {}, 아이템: {}, 수량: {}",
 			user.getUserId(), request.getItemName(), request.getQuantity());
 
 		try {
 			ShoppingService.AddItemToCartResponse response = shoppingService.addItemToCurrentCart(
-				user, 
+				user,
 				request.getItemName(),
 				request.getQuantity(),
 				request.getCategory(),
@@ -326,9 +330,80 @@ public class ShoppingController {
 		}
 	}
 
+	@PostMapping("/remove-item")
+	@Operation(
+		summary = "현재 장바구니에서 아이템 제거",
+		description = "현재 열려있는 장바구니에서 아이템을 제거합니다. " +
+			"수량을 지정하면 해당 수량만큼만 제거하고, 지정하지 않거나 현재 수량보다 크면 전체 제거됩니다."
+	)
+	public ResponseEntity<ApiResponse<ShoppingService.RemoveItemFromCartResponse>> removeItemFromCurrentCart(
+		@RequestBody RemoveItemFromCartRequest request) {
+
+		User user = SecurityUtils.getCurrentUser();
+		log.info("현재 장바구니에서 아이템 제거 - 사용자: {}, 아이템 ID: {}, 제거 수량: {}",
+			user.getUserId(), request.getItemId(), request.getQuantityToRemove());
+
+		try {
+			ShoppingService.RemoveItemFromCartResponse response = shoppingService.removeItemFromCurrentCart(
+				user,
+				request.getItemId(),
+				request.getQuantityToRemove()
+			);
+
+			if (response.isSuccess()) {
+				return ResponseEntity.ok(ApiResponse.success(response.getMessage(), response));
+			} else {
+				return ResponseEntity.badRequest()
+					.body(ApiResponse.failure("REMOVE_ITEM_FAILED", response.getMessage()));
+			}
+
+		} catch (Exception e) {
+			log.error("장바구니 아이템 제거 중 오류 발생", e);
+			return ResponseEntity.badRequest()
+				.body(ApiResponse.failure("REMOVE_ITEM_FAILED", "아이템 제거 중 오류가 발생했습니다: " + e.getMessage()));
+		}
+	}
+
+	@DeleteMapping("/lists/items")
+	@Operation(
+		summary = "특정 장바구니에서 아이템 제거",
+		description = "특정 장바구니에서 아이템을 제거합니다. " +
+			"수량을 지정하면 해당 수량만큼만 제거하고, 지정하지 않으면 전체 제거됩니다."
+	)
+	public ResponseEntity<ApiResponse<ShoppingService.RemoveItemFromCartResponse>> removeItemFromCart(
+		@Parameter(description = "제거할 수량 (선택사항)") @RequestBody(required = false) RemoveItemFromCartRequest request) {
+
+		User user = SecurityUtils.getCurrentUser();
+		Integer quantityToRemove = request != null ? request.getQuantityToRemove() : null;
+
+		log.info("장바구니에서 아이템 제거 - 사용자: {}, 장바구니 ID: {}, 아이템 ID: {}, 제거 수량: {}",
+			user.getUserId(), request.getShoppingListId(), request.getItemId(), quantityToRemove);
+
+		try {
+			ShoppingService.RemoveItemFromCartResponse response = shoppingService.removeItemFromCart(
+				user,
+				request.getShoppingListId(),
+				request.getItemId(),
+				quantityToRemove
+			);
+
+			if (response.isSuccess()) {
+				return ResponseEntity.ok(ApiResponse.success(response.getMessage(), response));
+			} else {
+				return ResponseEntity.badRequest()
+					.body(ApiResponse.failure("REMOVE_ITEM_FAILED", response.getMessage()));
+			}
+
+		} catch (Exception e) {
+			log.error("장바구니 아이템 제거 중 오류 발생", e);
+			return ResponseEntity.badRequest()
+				.body(ApiResponse.failure("REMOVE_ITEM_FAILED", "아이템 제거 중 오류가 발생했습니다: " + e.getMessage()));
+		}
+	}
+
 	@GetMapping("/current")
 	@Operation(
-		summary = "현재 열린 장바구니 조회", 
+		summary = "현재 열린 장바구니 조회",
 		description = "현재 열려있는 장바구니 정보를 조회합니다. (PLANNED 또는 IN_PROGRESS 상태)"
 	)
 	public ResponseEntity<ApiResponse<ShoppingListResponse>> getCurrentShoppingList() {
@@ -338,7 +413,7 @@ public class ShoppingController {
 
 		try {
 			Optional<ShoppingList> currentCartOpt = shoppingService.getCurrentOpenShoppingList(user);
-			
+
 			if (currentCartOpt.isPresent()) {
 				ShoppingListResponse response = ShoppingListResponse.from(currentCartOpt.get());
 				return ResponseEntity.ok(ApiResponse.success("현재 열린 장바구니를 조회했습니다.", response));

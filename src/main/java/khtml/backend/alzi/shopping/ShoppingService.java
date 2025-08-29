@@ -40,24 +40,24 @@ public class ShoppingService {
 	@Transactional
 	public ShoppingListResponse createShoppingList(CreateShoppingListRequest request, User user) {
 		log.info("장바구니 생성 시작 - 사용자: {}, 제목: {}", user.getUserId());
-		
+
 		// 장보기 리스트 생성
 		ShoppingList shoppingList = ShoppingList.builder()
 			.user(user)
 			.build();
-		
+
 		ShoppingList savedShoppingList = shoppingListRepository.save(shoppingList);
 		log.info("장보기 리스트 저장 완료 - ID: {}", savedShoppingList.getId());
-		
+
 		// 아이템들 처리 및 쇼핑 기록 생성
 		if (request.getItems() != null && !request.getItems().isEmpty()) {
 			for (CreateShoppingListRequest.ShoppingItemRequest itemRequest : request.getItems()) {
 				// 기존 아이템 찾기 또는 새로 생성
 				Item item = findOrCreateItem(itemRequest.getItemName(), itemRequest.getCategory());
-				
+
 				// 아이템 가격 조회
 				BigDecimal unitPrice = getItemPrice(item);
-				
+
 				// 쇼핑 기록 생성 (가격 정보 포함)
 				ShoppingRecord record = ShoppingRecord.builder()
 					.shoppingList(savedShoppingList)
@@ -65,70 +65,70 @@ public class ShoppingService {
 					.quantity(itemRequest.getQuantity())
 					.unitPrice(unitPrice)
 					.build();
-				
+
 				shoppingRecordRepository.save(record);
-				log.info("쇼핑 기록 생성 - 아이템: {}, 수량: {}, 단가: {}원", 
+				log.info("쇼핑 기록 생성 - 아이템: {}, 수량: {}, 단가: {}원",
 					item.getName(), itemRequest.getQuantity(), unitPrice);
 			}
 		}
-		
+
 		// 응답 데이터를 위해 다시 조회 (연관관계 포함)
 		ShoppingList resultShoppingList = shoppingListRepository.findById(savedShoppingList.getId())
 			.orElseThrow(() -> new IllegalStateException("저장된 쇼핑 리스트를 찾을 수 없습니다."));
-		
+
 		return ShoppingListResponse.from(resultShoppingList);
 	}
-	
+
 	/**
 	 * 아이템명으로 기존 아이템을 찾거나 새로 생성
 	 */
 	@Transactional
 	public Item findOrCreateItem(String itemName, String category) {
 		Optional<Item> existingItem = itemRepository.findByName(itemName);
-		
+
 		if (existingItem.isPresent()) {
 			log.info("기존 아이템 사용 - 이름: {}", itemName);
 			Item item = existingItem.get();
-			
+
 			// 기존 아이템의 카테고리가 null이거나 비어있는 경우 자동 분류
 			String finalCategory = category;
 			if (item.getCategory() == null || item.getCategory().trim().isEmpty()) {
-				finalCategory = (category != null && !category.trim().isEmpty()) 
-					? category 
+				finalCategory = (category != null && !category.trim().isEmpty())
+					? category
 					: itemCategoryUtil.categorizeItem(itemName);
-				
+
 				item.updateInfo(finalCategory);
 				itemRepository.save(item);
 				log.info("아이템 카테고리 자동 설정 - 이름: {}, 카테고리: {}", itemName, finalCategory);
-			} else if (category != null && !category.trim().isEmpty() && 
-					   !category.equals(item.getCategory())) {
+			} else if (category != null && !category.trim().isEmpty() &&
+				!category.equals(item.getCategory())) {
 				// 새로운 카테고리 정보가 있고 기존과 다른 경우 업데이트
 				item.updateInfo(category);
 				itemRepository.save(item);
-				log.info("아이템 카테고리 업데이트 - 이름: {}, 기존: {}, 신규: {}", 
+				log.info("아이템 카테고리 업데이트 - 이름: {}, 기존: {}, 신규: {}",
 					itemName, item.getCategory(), category);
 			}
-			
+
 			return item;
 		} else {
 			// 새 아이템 생성 - 카테고리가 없으면 자동 분류
-			String finalCategory = (category != null && !category.trim().isEmpty()) 
-				? category 
+			String finalCategory = (category != null && !category.trim().isEmpty())
+				? category
 				: itemCategoryUtil.categorizeItem(itemName);
-			
+
 			Item newItem = Item.builder()
 				.name(itemName)
 				.category(finalCategory)
 				.build();
-			
+
 			Item savedItem = itemRepository.save(newItem);
-			log.info("새 아이템 생성 - 이름: {}, 카테고리: {} (자동분류: {})", 
+			log.info("새 아이템 생성 - 이름: {}, 카테고리: {} (자동분류: {})",
 				itemName, finalCategory, category == null || category.trim().isEmpty());
-			
+
 			return savedItem;
 		}
 	}
-	
+
 	/**
 	 * 사용자의 모든 장보기 리스트 조회
 	 */
@@ -139,7 +139,7 @@ public class ShoppingService {
 			.map(ShoppingListResponse::from)
 			.toList();
 	}
-	
+
 	/**
 	 * 특정 장보기 리스트 조회
 	 */
@@ -147,7 +147,7 @@ public class ShoppingService {
 	public ShoppingListResponse getShoppingList(Long shoppingListId, User user) {
 		ShoppingList shoppingList = shoppingListRepository.findByIdAndUser(shoppingListId, user)
 			.orElseThrow(() -> new IllegalArgumentException("해당 장보기 리스트를 찾을 수 없습니다."));
-		
+
 		return ShoppingListResponse.from(shoppingList);
 	}
 
@@ -167,7 +167,7 @@ public class ShoppingService {
 			}
 		});
 	}
-	
+
 	/**
 	 * 기존 아이템들의 카테고리를 일괄 업데이트
 	 * 카테고리가 null이거나 "기타"인 아이템들을 대상으로 자동 분류 실행
@@ -175,17 +175,17 @@ public class ShoppingService {
 	@Transactional
 	public void updateItemCategories() {
 		log.info("아이템 카테고리 일괄 업데이트 시작");
-		
+
 		List<Item> itemsToUpdate = itemRepository.findAll().stream()
-			.filter(item -> item.getCategory() == null || 
-						   item.getCategory().trim().isEmpty() ||
-						   ItemCategoryUtil.OTHERS.equals(item.getCategory()))
+			.filter(item -> item.getCategory() == null ||
+				item.getCategory().trim().isEmpty() ||
+				ItemCategoryUtil.OTHERS.equals(item.getCategory()))
 			.toList();
-		
+
 		int updatedCount = 0;
 		for (Item item : itemsToUpdate) {
 			String autoCategory = itemCategoryUtil.categorizeItem(item.getName());
-			
+
 			// "기타"가 아닌 카테고리로 분류된 경우에만 업데이트
 			if (!ItemCategoryUtil.OTHERS.equals(autoCategory)) {
 				item.updateInfo(autoCategory);
@@ -194,7 +194,7 @@ public class ShoppingService {
 				log.info("카테고리 업데이트 - 아이템: {}, 카테고리: {}", item.getName(), autoCategory);
 			}
 		}
-		
+
 		log.info("아이템 카테고리 일괄 업데이트 완료 - 총 {}개 아이템 업데이트", updatedCount);
 	}
 
@@ -205,7 +205,7 @@ public class ShoppingService {
 	private BigDecimal getItemPrice(Item item) {
 		try {
 			List<ItemPrice> itemPrices = itemPriceRepository.findAllByItemName(item.getName());
-			
+
 			if (itemPrices.isEmpty()) {
 				log.debug("아이템 '{}'의 가격 정보가 없습니다", item.getName());
 				return getDefaultItemPrice(item.getName(), item.getCategory());
@@ -225,14 +225,14 @@ public class ShoppingService {
 			// 평균 가격 계산
 			BigDecimal sum = validPrices.stream()
 				.reduce(BigDecimal.ZERO, BigDecimal::add);
-			
+
 			BigDecimal averagePrice = sum.divide(
-				BigDecimal.valueOf(validPrices.size()), 
+				BigDecimal.valueOf(validPrices.size()),
 				0, // 소수점 없이 정수로
 				BigDecimal.ROUND_HALF_UP
 			);
 
-			log.info("아이템 '{}' 평균 가격 계산 완료 - {}원 ({}개 시장 평균)", 
+			log.info("아이템 '{}' 평균 가격 계산 완료 - {}원 ({}개 시장 평균)",
 				item.getName(), averagePrice, validPrices.size());
 
 			return averagePrice;
@@ -289,7 +289,8 @@ public class ShoppingService {
 	 * 장바구니 아이템들을 구매 완료 상태로 변경 (절약 금액 계산 포함)
 	 */
 	@Transactional
-	public ShoppingListResponse completeShoppingItems(Long shoppingListId, List<Long> itemIds, User user, Map<Long, String> itemMarkets) {
+	public ShoppingListResponse completeShoppingItems(Long shoppingListId, List<Long> itemIds, User user,
+		Map<Long, String> itemMarkets) {
 		log.info("장바구니 {} 아이템 구매 완료 처리 시작 - 아이템 ID: {}", shoppingListId, itemIds);
 
 		// 장바구니 조회 및 권한 확인
@@ -304,16 +305,16 @@ public class ShoppingService {
 		for (Long itemId : itemIds) {
 			Optional<ShoppingRecord> recordOpt = shoppingRecordRepository
 				.findByIdAndShoppingListAndUser(itemId, shoppingList, user);
-			
+
 			if (recordOpt.isPresent()) {
 				ShoppingRecord record = recordOpt.get();
-				
+
 				// 이미 완료된 아이템은 건너뛰기
 				if (record.getStatus() == ShoppingRecord.PurchaseStatus.PURCHASED) {
 					log.info("이미 구매 완료된 아이템 건너뛰기 - 아이템 ID: {}, 아이템명: {}", itemId, record.getItem().getName());
 					continue;
 				}
-				
+
 				// 시장 정보 업데이트 (있는 경우)
 				if (itemMarkets != null && itemMarkets.containsKey(itemId)) {
 					String marketName = itemMarkets.get(itemId);
@@ -325,48 +326,48 @@ public class ShoppingService {
 						log.warn("시장 '{}' 정보를 찾을 수 없습니다", marketName);
 					}
 				}
-				
+
 				// 구매 완료 처리
 				record.markAsPurchased();
 				shoppingRecordRepository.save(record);
 				updatedCount++;
-				
+
 				// 절약 금액 계산 및 저장
 				try {
-					SavingsService.SavingsCalculationResult savingsResult = 
+					SavingsService.SavingsCalculationResult savingsResult =
 						savingsService.calculateAndSaveSavings(record, user);
-					
+
 					if (savingsResult.isSuccess()) {
 						savingsCalculatedCount++;
 						BigDecimal savingsAmount = savingsResult.getSavingsRecord().getSavingsAmount();
 						totalSavings = totalSavings.add(savingsAmount);
-						
-						log.info("아이템 '{}'의 절약 금액 계산 완료 - {}원 ({}와 비교)", 
-							record.getItem().getName(), 
+
+						log.info("아이템 '{}'의 절약 금액 계산 완료 - {}원 ({}와 비교)",
+							record.getItem().getName(),
 							savingsAmount,
 							savingsResult.getComparisonResult().getComparisonType());
 					} else {
-						log.info("아이템 '{}'의 절약 금액 계산 실패 - {}", 
+						log.info("아이템 '{}'의 절약 금액 계산 실패 - {}",
 							record.getItem().getName(), savingsResult.getMessage());
 					}
 				} catch (Exception e) {
-					log.error("아이템 '{}'의 절약 금액 계산 중 오류 발생: {}", 
+					log.error("아이템 '{}'의 절약 금액 계산 중 오류 발생: {}",
 						record.getItem().getName(), e.getMessage(), e);
 				}
-				
+
 				log.info("아이템 구매 완료 처리 - 아이템 ID: {}, 아이템명: {}", itemId, record.getItem().getName());
 			} else {
 				log.warn("아이템 ID {}를 찾을 수 없거나 권한이 없습니다", itemId);
 			}
 		}
 
-		log.info("장바구니 {} 아이템 구매 완료 처리 완료 - 총 {}개 처리, 절약금액 계산 {}개, 총 절약: {}원", 
+		log.info("장바구니 {} 아이템 구매 완료 처리 완료 - 총 {}개 처리, 절약금액 계산 {}개, 총 절약: {}원",
 			shoppingListId, updatedCount, savingsCalculatedCount, totalSavings);
 
 		// 업데이트된 장바구니 정보 반환
 		ShoppingList updatedShoppingList = shoppingListRepository.findByIdAndUser(shoppingListId, user)
 			.orElseThrow(() -> new IllegalStateException("장바구니 조회 실패"));
-		
+
 		return ShoppingListResponse.from(updatedShoppingList);
 	}
 
@@ -386,20 +387,20 @@ public class ShoppingService {
 		for (Long itemId : itemIds) {
 			Optional<ShoppingRecord> recordOpt = shoppingRecordRepository
 				.findByIdAndShoppingListAndUser(itemId, shoppingList, user);
-			
+
 			if (recordOpt.isPresent()) {
 				ShoppingRecord record = recordOpt.get();
-				
+
 				// 이미 취소된 아이템은 건너뛰기
 				if (record.getStatus() == ShoppingRecord.PurchaseStatus.CANCELLED) {
 					log.info("이미 취소된 아이템 건너뛰기 - 아이템 ID: {}, 아이템명: {}", itemId, record.getItem().getName());
 					continue;
 				}
-				
+
 				record.cancel();
 				shoppingRecordRepository.save(record);
 				updatedCount++;
-				
+
 				log.info("아이템 취소 처리 - 아이템 ID: {}, 아이템명: {}", itemId, record.getItem().getName());
 			} else {
 				log.warn("아이템 ID {}를 찾을 수 없거나 권한이 없습니다", itemId);
@@ -411,7 +412,7 @@ public class ShoppingService {
 		// 업데이트된 장바구니 정보 반환
 		ShoppingList updatedShoppingList = shoppingListRepository.findByIdAndUser(shoppingListId, user)
 			.orElseThrow(() -> new IllegalStateException("장바구니 조회 실패"));
-		
+
 		return ShoppingListResponse.from(updatedShoppingList);
 	}
 
@@ -424,12 +425,12 @@ public class ShoppingService {
 			.orElseThrow(() -> new IllegalArgumentException("해당 장바구니를 찾을 수 없습니다."));
 
 		List<ShoppingRecord> records = shoppingList.getShoppingRecords();
-		
+
 		int totalItems = records.size();
-		int completedItems = (int) records.stream()
+		int completedItems = (int)records.stream()
 			.filter(record -> record.getStatus() == ShoppingRecord.PurchaseStatus.PURCHASED)
 			.count();
-		int cancelledItems = (int) records.stream()
+		int cancelledItems = (int)records.stream()
 			.filter(record -> record.getStatus() == ShoppingRecord.PurchaseStatus.CANCELLED)
 			.count();
 		int plannedItems = totalItems - completedItems - cancelledItems;
@@ -440,7 +441,7 @@ public class ShoppingService {
 			.completedItems(completedItems)
 			.plannedItems(plannedItems)
 			.cancelledItems(cancelledItems)
-			.completionRate(totalItems > 0 ? (double) completedItems / totalItems * 100 : 0.0)
+			.completionRate(totalItems > 0 ? (double)completedItems / totalItems * 100 : 0.0)
 			.build();
 	}
 
@@ -487,15 +488,17 @@ public class ShoppingService {
 				.sorted((entry1, entry2) -> {
 					FrequentItemStats stats1 = entry1.getValue();
 					FrequentItemStats stats2 = entry2.getValue();
-					
+
 					// 1차: 구매 횟수 내림차순
 					int compareCount = Integer.compare(stats2.getPurchaseCount(), stats1.getPurchaseCount());
-					if (compareCount != 0) return compareCount;
-					
+					if (compareCount != 0)
+						return compareCount;
+
 					// 2차: 총 구매량 내림차순
 					int compareQuantity = Integer.compare(stats2.getTotalQuantity(), stats1.getTotalQuantity());
-					if (compareQuantity != 0) return compareQuantity;
-					
+					if (compareQuantity != 0)
+						return compareQuantity;
+
 					// 3차: 마지막 구매일 내림차순 (최근 구매 우선)
 					return stats2.getLastPurchaseDate().compareTo(stats1.getLastPurchaseDate());
 				})
@@ -503,7 +506,7 @@ public class ShoppingService {
 				.map(entry -> {
 					String itemName = entry.getKey();
 					FrequentItemStats stats = entry.getValue();
-					
+
 					return FrequentItemResponse.builder()
 						.itemName(itemName)
 						.category(stats.getCategory())
@@ -553,7 +556,7 @@ public class ShoppingService {
 
 		int purchaseCount = records.size();
 		int totalQuantity = records.stream().mapToInt(ShoppingRecord::getQuantity).sum();
-		double averageQuantity = (double) totalQuantity / purchaseCount;
+		double averageQuantity = (double)totalQuantity / purchaseCount;
 
 		// 유효한 가격이 있는 기록들만 사용
 		List<BigDecimal> validPrices = records.stream()
@@ -567,7 +570,7 @@ public class ShoppingService {
 		if (!validPrices.isEmpty()) {
 			BigDecimal priceSum = validPrices.stream().reduce(BigDecimal.ZERO, BigDecimal::add);
 			averagePrice = priceSum.divide(BigDecimal.valueOf(validPrices.size()), 0, RoundingMode.HALF_UP);
-			
+
 			totalSpent = records.stream()
 				.map(ShoppingRecord::getPrice)
 				.filter(price -> price != null && price.compareTo(BigDecimal.ZERO) > 0)
@@ -575,7 +578,7 @@ public class ShoppingService {
 		}
 
 		LocalDateTime lastPurchase = latestRecord.getPurchasedAt();
-		long daysSinceLastPurchase = lastPurchase != null ? 
+		long daysSinceLastPurchase = lastPurchase != null ?
 			java.time.temporal.ChronoUnit.DAYS.between(lastPurchase.toLocalDate(), LocalDate.now()) : 0;
 
 		return FrequentItemStats.builder()
@@ -586,7 +589,7 @@ public class ShoppingService {
 			.averagePrice(averagePrice)
 			.totalSpent(totalSpent)
 			.lastPurchaseDate(lastPurchase)
-			.daysSinceLastPurchase((int) daysSinceLastPurchase)
+			.daysSinceLastPurchase((int)daysSinceLastPurchase)
 			.build();
 	}
 
@@ -644,29 +647,29 @@ public class ShoppingService {
 	@Transactional(readOnly = true)
 	public CategoryStatsResponse getCategoryStats() {
 		log.info("카테고리별 아이템 통계 조회");
-		
+
 		// 1. 카테고리별 아이템 개수 조회
 		List<Object[]> categoryCountsData = itemRepository.getCategoryItemCounts();
-		
+
 		// 2. 전체 아이템 개수
 		Long totalItems = itemRepository.getTotalItemCount();
-		
+
 		// 3. 각 카테고리별 상세 정보 생성
 		List<CategoryStatsResponse.CategoryInfo> categories = categoryCountsData.stream()
 			.map(row -> {
-				String categoryName = (String) row[0];
-				Long itemCount = (Long) row[1];
-				
+				String categoryName = (String)row[0];
+				Long itemCount = (Long)row[1];
+
 				// 비율 계산
-				double percentage = totalItems > 0 ? 
-					(double) itemCount / totalItems * 100 : 0.0;
-				
+				double percentage = totalItems > 0 ?
+					(double)itemCount / totalItems * 100 : 0.0;
+
 				// 해당 카테고리의 상위 5개 아이템
 				List<String> topItems = itemRepository.findItemNamesByCategory(categoryName)
 					.stream()
 					.limit(5)
 					.collect(Collectors.toList());
-				
+
 				return CategoryStatsResponse.CategoryInfo.builder()
 					.categoryName(categoryName)
 					.itemCount(itemCount)
@@ -675,10 +678,10 @@ public class ShoppingService {
 					.build();
 			})
 			.collect(Collectors.toList());
-		
-		log.info("카테고리별 통계 조회 완료 - 총 {}개 카테고리, {}개 아이템", 
+
+		log.info("카테고리별 통계 조회 완료 - 총 {}개 카테고리, {}개 아이템",
 			categories.size(), totalItems);
-		
+
 		return CategoryStatsResponse.builder()
 			.categories(categories)
 			.totalCategories(categories.size())
@@ -692,10 +695,10 @@ public class ShoppingService {
 	@Transactional(readOnly = true)
 	public Optional<ShoppingList> getCurrentOpenShoppingList(User user) {
 		List<ShoppingList> openLists = shoppingListRepository.findByUserAndStatusInOrderByCreatedAtDesc(
-			user, 
+			user,
 			List.of(ShoppingList.ShoppingListStatus.PLANNED, ShoppingList.ShoppingListStatus.IN_PROGRESS)
 		);
-		
+
 		return openLists.isEmpty() ? Optional.empty() : Optional.of(openLists.get(0));
 	}
 
@@ -703,9 +706,9 @@ public class ShoppingService {
 	 * 현재 열려있는 장바구니에 아이템 추가 (없으면 새로 생성)
 	 */
 	@Transactional
-	public AddItemToCartResponse addItemToCurrentCart(User user, String itemName, Integer quantity, 
-	                                                   String category, String memo) {
-		log.info("현재 장바구니에 아이템 추가 - 사용자: {}, 아이템: {}, 수량: {}", 
+	public AddItemToCartResponse addItemToCurrentCart(User user, String itemName, Integer quantity,
+		String category, String memo) {
+		log.info("현재 장바구니에 아이템 추가 - 사용자: {}, 아이템: {}, 수량: {}",
 			user.getUserId(), itemName, quantity);
 
 		try {
@@ -745,29 +748,29 @@ public class ShoppingService {
 				shoppingRecord = existingRecord.get();
 				int newQuantity = shoppingRecord.getQuantity() + quantity;
 				shoppingRecord.setQuantity(newQuantity);
-				
+
 				// 가격 재계산
 				BigDecimal unitPrice = getItemPrice(item);
 				shoppingRecord.updatePrice(unitPrice);
-				
+
 				shoppingRecordRepository.save(shoppingRecord);
 				itemUpdated = true;
-				
-				log.info("기존 아이템 수량 업데이트 - 아이템: {}, 기존: {}개 → 새로운: {}개", 
+
+				log.info("기존 아이템 수량 업데이트 - 아이템: {}, 기존: {}개 → 새로운: {}개",
 					itemName, shoppingRecord.getQuantity() - quantity, newQuantity);
 			} else {
 				// 새 아이템 추가
 				BigDecimal unitPrice = getItemPrice(item);
-				
+
 				shoppingRecord = ShoppingRecord.builder()
 					.shoppingList(shoppingList)
 					.item(item)
 					.quantity(quantity)
 					.unitPrice(unitPrice)
 					.build();
-				
+
 				shoppingRecordRepository.save(shoppingRecord);
-				log.info("새 아이템 추가 - 아이템: {}, 수량: {}개, 단가: {}원", 
+				log.info("새 아이템 추가 - 아이템: {}, 수량: {}개, 단가: {}원",
 					itemName, quantity, unitPrice);
 			}
 
@@ -799,27 +802,194 @@ public class ShoppingService {
 	}
 
 	/**
+	 * 현재 열려있는 장바구니에서 아이템 제거
+	 */
+	@Transactional
+	public RemoveItemFromCartResponse removeItemFromCurrentCart(User user, Long itemId, Integer quantityToRemove) {
+		log.info("현재 장바구니에서 아이템 제거 - 사용자: {}, 아이템 ID: {}, 제거 수량: {}",
+			user.getUserId(), itemId, quantityToRemove);
+
+		try {
+			// 1. 현재 열려있는 장바구니 찾기
+			Optional<ShoppingList> currentCartOpt = getCurrentOpenShoppingList(user);
+
+			if (currentCartOpt.isEmpty()) {
+				return RemoveItemFromCartResponse.builder()
+					.success(false)
+					.message("열려있는 장바구니가 없습니다")
+					.build();
+			}
+
+			ShoppingList shoppingList = currentCartOpt.get();
+
+			// 2. 해당 쇼핑 레코드 찾기 및 권한 확인
+			Optional<ShoppingRecord> recordOpt = shoppingRecordRepository
+				.findByIdAndShoppingListAndUser(itemId, shoppingList, user);
+
+			if (recordOpt.isEmpty()) {
+				return RemoveItemFromCartResponse.builder()
+					.success(false)
+					.message("해당 아이템을 찾을 수 없습니다")
+					.build();
+			}
+
+			ShoppingRecord record = recordOpt.get();
+			String itemName = record.getItem().getName();
+			int currentQuantity = record.getQuantity();
+
+			// 3. 수량 확인 및 처리
+			if (quantityToRemove == null || quantityToRemove >= currentQuantity) {
+				// 전체 제거
+				shoppingRecordRepository.delete(record);
+
+				log.info("아이템 전체 제거 - 아이템: {}, 제거된 수량: {}개", itemName, currentQuantity);
+
+				return RemoveItemFromCartResponse.builder()
+					.success(true)
+					.shoppingListId(shoppingList.getId())
+					.itemName(itemName)
+					.removedQuantity(currentQuantity)
+					.remainingQuantity(0)
+					.itemCompletelyRemoved(true)
+					.message(String.format("'%s'을(를) 장바구니에서 완전히 제거했습니다", itemName))
+					.build();
+			} else {
+				// 부분 제거 - 수량만 감소
+				int newQuantity = currentQuantity - quantityToRemove;
+				record.setQuantity(newQuantity);
+
+				// 가격 재계산
+				BigDecimal unitPrice = record.getUnitPrice();
+				record.updatePrice(unitPrice);
+
+				shoppingRecordRepository.save(record);
+
+				log.info("아이템 부분 제거 - 아이템: {}, 제거 수량: {}개, 남은 수량: {}개",
+					itemName, quantityToRemove, newQuantity);
+
+				return RemoveItemFromCartResponse.builder()
+					.success(true)
+					.shoppingListId(shoppingList.getId())
+					.itemName(itemName)
+					.removedQuantity(quantityToRemove)
+					.remainingQuantity(newQuantity)
+					.itemCompletelyRemoved(false)
+					.message(String.format("'%s' %d개를 제거했습니다 (남은 수량: %d개)",
+						itemName, quantityToRemove, newQuantity))
+					.build();
+			}
+
+		} catch (Exception e) {
+			log.error("장바구니에서 아이템 제거 실패: {}", e.getMessage(), e);
+			return RemoveItemFromCartResponse.builder()
+				.success(false)
+				.message("아이템 제거 중 오류가 발생했습니다: " + e.getMessage())
+				.build();
+		}
+	}
+
+	/**
+	 * 특정 장바구니에서 아이템 제거
+	 */
+	@Transactional
+	public RemoveItemFromCartResponse removeItemFromCart(User user, Long shoppingListId, Long itemId,
+		Integer quantityToRemove) {
+		log.info("장바구니에서 아이템 제거 - 사용자: {}, 장바구니 ID: {}, 아이템 ID: {}, 제거 수량: {}",
+			user.getUserId(), shoppingListId, itemId, quantityToRemove);
+
+		try {
+			// 1. 장바구니 조회 및 권한 확인
+			ShoppingList shoppingList = shoppingListRepository.findByIdAndUser(shoppingListId, user)
+				.orElseThrow(() -> new IllegalArgumentException("해당 장바구니를 찾을 수 없습니다"));
+
+			// 2. 해당 쇼핑 레코드 찾기 및 권한 확인
+			Optional<ShoppingRecord> recordOpt = shoppingRecordRepository
+				.findByIdAndShoppingListAndUser(itemId, shoppingList, user);
+
+			if (recordOpt.isEmpty()) {
+				return RemoveItemFromCartResponse.builder()
+					.success(false)
+					.message("해당 아이템을 찾을 수 없습니다")
+					.build();
+			}
+
+			ShoppingRecord record = recordOpt.get();
+			String itemName = record.getItem().getName();
+			int currentQuantity = record.getQuantity();
+
+			// 3. 수량 확인 및 처리
+			if (quantityToRemove == null || quantityToRemove >= currentQuantity) {
+				// 전체 제거
+				shoppingRecordRepository.delete(record);
+
+				log.info("아이템 전체 제거 - 아이템: {}, 제거된 수량: {}개", itemName, currentQuantity);
+
+				return RemoveItemFromCartResponse.builder()
+					.success(true)
+					.shoppingListId(shoppingListId)
+					.itemName(itemName)
+					.removedQuantity(currentQuantity)
+					.remainingQuantity(0)
+					.itemCompletelyRemoved(true)
+					.message(String.format("'%s'을(를) 장바구니에서 완전히 제거했습니다", itemName))
+					.build();
+			} else {
+				// 부분 제거 - 수량만 감소
+				int newQuantity = currentQuantity - quantityToRemove;
+				record.setQuantity(newQuantity);
+
+				// 가격 재계산
+				BigDecimal unitPrice = record.getUnitPrice();
+				record.updatePrice(unitPrice);
+
+				shoppingRecordRepository.save(record);
+
+				log.info("아이템 부분 제거 - 아이템: {}, 제거 수량: {}개, 남은 수량: {}개",
+					itemName, quantityToRemove, newQuantity);
+
+				return RemoveItemFromCartResponse.builder()
+					.success(true)
+					.shoppingListId(shoppingListId)
+					.itemName(itemName)
+					.removedQuantity(quantityToRemove)
+					.remainingQuantity(newQuantity)
+					.itemCompletelyRemoved(false)
+					.message(String.format("'%s' %d개를 제거했습니다 (남은 수량: %d개)",
+						itemName, quantityToRemove, newQuantity))
+					.build();
+			}
+
+		} catch (Exception e) {
+			log.error("장바구니에서 아이템 제거 실패: {}", e.getMessage(), e);
+			return RemoveItemFromCartResponse.builder()
+				.success(false)
+				.message("아이템 제거 중 오류가 발생했습니다: " + e.getMessage())
+				.build();
+		}
+	}
+
+	/**
 	 * 아이템 추가 결과 메시지 생성
 	 */
-	private String buildAddItemMessage(String itemName, Integer addedQuantity, 
-	                                   boolean itemUpdated, boolean newCartCreated) {
+	private String buildAddItemMessage(String itemName, Integer addedQuantity,
+		boolean itemUpdated, boolean newCartCreated) {
 		StringBuilder message = new StringBuilder();
-		
+
 		if (newCartCreated) {
 			message.append("새 장바구니를 생성하고 ");
 		}
-		
+
 		if (itemUpdated) {
 			message.append(String.format("'%s' %d개를 기존 수량에 추가했습니다", itemName, addedQuantity));
 		} else {
 			message.append(String.format("'%s' %d개를 장바구니에 추가했습니다", itemName, addedQuantity));
 		}
-		
+
 		return message.toString();
 	}
 
 	// === 새로운 DTO 클래스 ===
-	
+
 	@lombok.Data
 	@lombok.Builder
 	public static class AddItemToCartResponse {
@@ -831,6 +1001,18 @@ public class ShoppingService {
 		private BigDecimal totalPrice;   // 해당 아이템의 총 가격
 		private boolean newCartCreated;  // 새 장바구니 생성 여부
 		private boolean itemUpdated;     // 기존 아이템 수량 업데이트 여부
+		private String message;
+	}
+
+	@lombok.Data
+	@lombok.Builder
+	public static class RemoveItemFromCartResponse {
+		private boolean success;
+		private Long shoppingListId;
+		private String itemName;
+		private Integer removedQuantity;         // 제거된 수량
+		private Integer remainingQuantity;       // 남은 수량
+		private boolean itemCompletelyRemoved;   // 아이템이 완전히 제거되었는지 여부
 		private String message;
 	}
 
