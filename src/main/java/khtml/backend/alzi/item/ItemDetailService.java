@@ -9,6 +9,10 @@ import khtml.backend.alzi.shopping.ItemPriceRepository;
 import khtml.backend.alzi.shopping.ItemRepository;
 import khtml.backend.alzi.utils.PricePredictionUtil;
 import khtml.backend.alzi.utils.SeasonalRecommendationUtil;
+import khtml.backend.alzi.item.dto.ItemPriceByMarketResponse;
+import khtml.backend.alzi.item.dto.ItemPricesByMarketsResponse;
+import khtml.backend.alzi.exception.CustomException;
+import khtml.backend.alzi.exception.ErrorCode;
 import lombok.Data;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -149,7 +153,7 @@ public class ItemDetailService {
             response.setItemName(item.getName());
             response.setCategory(item.getCategory());
 
-            // 2. 현재 평균 가격 계산
+            // 2. 현재 평균 가격 계산 (0원 제외)
             List<ItemPrice> allItemPrices = itemPriceRepository.findAllByItemName(itemName);
             BigDecimal currentAveragePrice = calculateCurrentAveragePrice(allItemPrices);
             response.setCurrentAveragePrice(currentAveragePrice);
@@ -227,7 +231,7 @@ public class ItemDetailService {
             List<MonthlyPriceInfo> monthlyPrices = generateMarketMonthlyPriceInfo(itemName, marketName);
             response.setMonthlyPrices(monthlyPrices);
 
-            // 5. 다른 시장과의 비교
+            // 5. 다른 시장과의 비교 (0원 제외)
             List<MarketComparisonInfo> marketComparisons = generateMarketComparisons(itemName, marketName, latestPrice.getPrice());
             response.setMarketComparisons(marketComparisons);
 
@@ -256,7 +260,7 @@ public class ItemDetailService {
 
         List<BigDecimal> validPrices = itemPrices.stream()
                 .map(ItemPrice::getPrice)
-                .filter(price -> price != null && price.compareTo(BigDecimal.ZERO) > 0)
+                .filter(price -> price != null && price.compareTo(BigDecimal.ZERO) > 0) // 0원 제외
                 .collect(Collectors.toList());
 
         if (validPrices.isEmpty()) return BigDecimal.ZERO;
@@ -296,12 +300,19 @@ public class ItemDetailService {
                         List<BigDecimal> prices = monthData.stream()
                                 .map(pd -> {
                                     try {
-                                        return new BigDecimal(pd.getPrice().replaceAll("[^0-9.]", ""));
+                                        if (pd.getPrice() == null || pd.getPrice().trim().isEmpty()) {
+                                            return null;
+                                        }
+                                        String priceStr = pd.getPrice().replaceAll("[^0-9.]", "");
+                                        if (priceStr.isEmpty()) {
+                                            return null;
+                                        }
+                                        return new BigDecimal(priceStr);
                                     } catch (Exception e) {
-                                        return BigDecimal.ZERO;
+                                        return null;
                                     }
                                 })
-                                .filter(price -> price.compareTo(BigDecimal.ZERO) > 0)
+                                .filter(price -> price != null && price.compareTo(BigDecimal.ZERO) > 0) // 0원 제외
                                 .collect(Collectors.toList());
 
                         if (!prices.isEmpty()) {
@@ -340,6 +351,7 @@ public class ItemDetailService {
         List<String> largeMarts = List.of("이마트", "롯데마트", "홈플러스");
         
         return allItemPrices.stream()
+                .filter(ip -> ip.getPrice() != null && ip.getPrice().compareTo(BigDecimal.ZERO) > 0) // 0원 제외
                 .collect(Collectors.groupingBy(ip -> ip.getMarket().getName()))
                 .entrySet().stream()
                 .map(entry -> {
@@ -364,14 +376,18 @@ public class ItemDetailService {
     private ItemStatistics generateItemStatistics(List<ItemPrice> allItemPrices) {
         if (allItemPrices.isEmpty()) return new ItemStatistics();
 
-        List<BigDecimal> validPrices = allItemPrices.stream()
+        // 0원인 가격 제외
+        List<ItemPrice> validItemPrices = allItemPrices.stream()
+                .filter(ip -> ip.getPrice() != null && ip.getPrice().compareTo(BigDecimal.ZERO) > 0)
+                .collect(Collectors.toList());
+
+        List<BigDecimal> validPrices = validItemPrices.stream()
                 .map(ItemPrice::getPrice)
-                .filter(price -> price != null && price.compareTo(BigDecimal.ZERO) > 0)
                 .collect(Collectors.toList());
 
         ItemStatistics stats = new ItemStatistics();
-        stats.setTotalDataPoints(allItemPrices.size());
-        stats.setTotalMarkets((int) allItemPrices.stream().map(ip -> ip.getMarket().getName()).distinct().count());
+        stats.setTotalDataPoints(validItemPrices.size()); // 0원 제외한 데이터 개수
+        stats.setTotalMarkets((int) validItemPrices.stream().map(ip -> ip.getMarket().getName()).distinct().count());
 
         if (!validPrices.isEmpty()) {
             BigDecimal sum = validPrices.stream().reduce(BigDecimal.ZERO, BigDecimal::add);
@@ -380,12 +396,12 @@ public class ItemDetailService {
             stats.setOverallMaxPrice(validPrices.stream().max(Comparator.naturalOrder()).orElse(BigDecimal.ZERO));
 
             // 가장 저렴한/비싼 시장 찾기
-            Optional<ItemPrice> cheapest = allItemPrices.stream()
+            Optional<ItemPrice> cheapest = validItemPrices.stream()
                     .filter(ip -> ip.getPrice().equals(stats.getOverallMinPrice()))
                     .findFirst();
             cheapest.ifPresent(ip -> stats.setCheapestMarket(ip.getMarket().getName()));
 
-            Optional<ItemPrice> mostExpensive = allItemPrices.stream()
+            Optional<ItemPrice> mostExpensive = validItemPrices.stream()
                     .filter(ip -> ip.getPrice().equals(stats.getOverallMaxPrice()))
                     .findFirst();
             mostExpensive.ifPresent(ip -> stats.setMostExpensiveMarket(ip.getMarket().getName()));
@@ -405,6 +421,7 @@ public class ItemDetailService {
 
         return allMarketPrices.stream()
                 .filter(ip -> !ip.getMarket().getName().equals(currentMarketName))
+                .filter(ip -> ip.getPrice() != null && ip.getPrice().compareTo(BigDecimal.ZERO) > 0) // 0원 제외
                 .collect(Collectors.groupingBy(ip -> ip.getMarket().getName()))
                 .entrySet().stream()
                 .map(entry -> {
@@ -471,5 +488,91 @@ public class ItemDetailService {
                 .count();
 
         return String.format("다른 시장 중 %d곳이 더 저렴하고 %d곳이 더 비쌉니다.", cheaperCount, expensiveCount);
+    }
+
+    /**
+     * 특정 아이템의 시장별 가격 조회 (0원 제외)
+     * @param itemId 아이템 ID
+     * @return 시장별 가격 정보 (0원 제외)
+     */
+    @Transactional(readOnly = true)
+    public ItemPricesByMarketsResponse getItemPricesByMarkets(Long itemId) {
+        log.info("아이템 ID {} 시장별 가격 조회 시작", itemId);
+        
+        try {
+            // 1. 아이템 존재 확인
+            Item item = itemRepository.findById(itemId)
+                    .orElseThrow(() -> new CustomException(ErrorCode.ITEM_NOT_FOUND, "아이템을 찾을 수 없습니다."));
+            
+            // 2. 아이템 가격 정보 조회 (0원 제외)
+            List<ItemPrice> itemPrices = itemPriceRepository.findByItem(item).stream()
+                    .filter(itemPrice -> itemPrice.getPrice() != null && 
+                                       itemPrice.getPrice().compareTo(BigDecimal.ZERO) > 0)
+                    .sorted(Comparator.comparing(ItemPrice::getPrice)) // 가격순 정렬
+                    .collect(Collectors.toList());
+            
+            if (itemPrices.isEmpty()) {
+                log.warn("아이템 ID {} - 가격 정보가 없습니다", itemId);
+                return ItemPricesByMarketsResponse.builder()
+                        .itemId(itemId)
+                        .itemName(item.getName())
+                        .itemCategory(item.getCategory())
+                        .totalMarkets(0)
+                        .averagePrice(BigDecimal.ZERO)
+                        .minPrice(BigDecimal.ZERO)
+                        .maxPrice(BigDecimal.ZERO)
+                        .pricesByMarkets(new ArrayList<>())
+                        .build();
+            }
+            
+            // 3. 시장별 가격 응답 객체 생성
+            List<ItemPriceByMarketResponse> pricesByMarkets = itemPrices.stream()
+                    .map(ItemPriceByMarketResponse::from)
+                    .collect(Collectors.toList());
+            
+            // 4. 최종 응답 생성
+            ItemPricesByMarketsResponse response = ItemPricesByMarketsResponse.from(
+                    itemId,
+                    item.getName(),
+                    item.getCategory(),
+                    pricesByMarkets
+            );
+            
+            log.info("아이템 ID {} 시장별 가격 조회 완료 - {} 개 시장", itemId, pricesByMarkets.size());
+            return response;
+            
+        } catch (CustomException e) {
+            log.error("아이템 ID {} 시장별 가격 조회 실패: {}", itemId, e.getMessage());
+            throw e;
+        } catch (Exception e) {
+            log.error("아이템 ID {} 시장별 가격 조회 중 예상치 못한 오류: {}", itemId, e.getMessage(), e);
+            throw new CustomException(ErrorCode.INTERNAL_SERVER_ERROR, "가격 조회 중 오류가 발생했습니다.");
+        }
+    }
+
+    /**
+     * 아이템명으로 시장별 가격 조회 (0원 제외)
+     * @param itemName 아이템명
+     * @return 시장별 가격 정보 (0원 제외)
+     */
+    @Transactional(readOnly = true)
+    public ItemPricesByMarketsResponse getItemPricesByMarketsWithName(String itemName) {
+        log.info("아이템명 '{}' 시장별 가격 조회 시작", itemName);
+        
+        try {
+            // 1. 아이템 존재 확인
+            Item item = itemRepository.findByName(itemName)
+                    .orElseThrow(() -> new CustomException(ErrorCode.ITEM_NOT_FOUND, 
+                            String.format("아이템 '%s'을 찾을 수 없습니다.", itemName)));
+            
+            return getItemPricesByMarkets(item.getId());
+            
+        } catch (CustomException e) {
+            log.error("아이템명 '{}' 시장별 가격 조회 실패: {}", itemName, e.getMessage());
+            throw e;
+        } catch (Exception e) {
+            log.error("아이템명 '{}' 시장별 가격 조회 중 예상치 못한 오류: {}", itemName, e.getMessage(), e);
+            throw new CustomException(ErrorCode.INTERNAL_SERVER_ERROR, "가격 조회 중 오류가 발생했습니다.");
+        }
     }
 }

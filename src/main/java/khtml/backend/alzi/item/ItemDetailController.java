@@ -4,6 +4,7 @@ import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import khtml.backend.alzi.utils.ApiResponse;
+import khtml.backend.alzi.item.dto.ItemPricesByMarketsResponse;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.web.bind.annotation.*;
@@ -82,6 +83,62 @@ public class ItemDetailController {
             log.error("시장 '{}' 아이템 '{}' 상세 정보 조회 중 오류 발생", marketName, itemName, e);
             return ApiResponse.failure("MARKET_ITEM_DETAIL_FAILED", 
                 "시장별 아이템 상세 정보 조회 중 오류가 발생했습니다: " + e.getMessage());
+        }
+    }
+
+    @GetMapping("/{itemId}/prices")
+    @Operation(
+        summary = "아이템 ID로 시장별 가격 조회",
+        description = "특정 아이템의 모든 시장에서의 가격 정보를 조회합니다. " +
+                     "0원인 가격 정보는 제외됩니다. 가격순으로 정렬되어 반환됩니다."
+    )
+    public ApiResponse<ItemPricesByMarketsResponse> getItemPricesByMarkets(
+            @Parameter(description = "조회할 아이템 ID") @PathVariable Long itemId) {
+        
+        log.info("아이템 ID {} 시장별 가격 조회 요청", itemId);
+
+        try {
+            ItemPricesByMarketsResponse response = itemDetailService.getItemPricesByMarkets(itemId);
+            
+            String message = String.format("아이템 '%s'의 시장별 가격 정보입니다. (총 %d개 시장)", 
+                    response.getItemName(), response.getTotalMarkets());
+
+            log.info("아이템 ID {} 시장별 가격 조회 완료 - {} 개 시장", itemId, response.getTotalMarkets());
+
+            return ApiResponse.success(message, response);
+
+        } catch (Exception e) {
+            log.error("아이템 ID {} 시장별 가격 조회 중 오류 발생: {}", itemId, e.getMessage(), e);
+            return ApiResponse.failure("ITEM_PRICES_FETCH_FAILED", 
+                "시장별 가격 조회 중 오류가 발생했습니다: " + e.getMessage());
+        }
+    }
+
+    @GetMapping("/name/{itemName}/prices")
+    @Operation(
+        summary = "아이템명으로 시장별 가격 조회",
+        description = "특정 아이템명의 모든 시장에서의 가격 정보를 조회합니다. " +
+                     "0원인 가격 정보는 제외됩니다. 가격순으로 정렬되어 반환됩니다."
+    )
+    public ApiResponse<ItemPricesByMarketsResponse> getItemPricesByMarketsWithName(
+            @Parameter(description = "조회할 아이템명") @PathVariable String itemName) {
+        
+        log.info("아이템명 '{}' 시장별 가격 조회 요청", itemName);
+
+        try {
+            ItemPricesByMarketsResponse response = itemDetailService.getItemPricesByMarketsWithName(itemName);
+            
+            String message = String.format("아이템 '%s'의 시장별 가격 정보입니다. (총 %d개 시장)", 
+                    response.getItemName(), response.getTotalMarkets());
+
+            log.info("아이템명 '{}' 시장별 가격 조회 완료 - {} 개 시장", itemName, response.getTotalMarkets());
+
+            return ApiResponse.success(message, response);
+
+        } catch (Exception e) {
+            log.error("아이템명 '{}' 시장별 가격 조회 중 오류 발생: {}", itemName, e.getMessage(), e);
+            return ApiResponse.failure("ITEM_PRICES_FETCH_FAILED", 
+                "시장별 가격 조회 중 오류가 발생했습니다: " + e.getMessage());
         }
     }
 }

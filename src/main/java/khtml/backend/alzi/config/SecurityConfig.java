@@ -42,15 +42,6 @@ public class SecurityConfig {
 	public SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
 		http
 			.cors(cors -> cors.configurationSource(corsConfigurationSource()))  // CORS 설정 추가
-			.csrf(csrf -> csrf
-				.ignoringRequestMatchers("/h2-console/**") // H2 콘솔은 CSRF 비활성화
-				.disable()
-			)
-			.headers(headers -> headers
-				.frameOptions(frameOptions -> frameOptions
-					.sameOrigin() // H2 콘솔을 위해 프레임 허용
-				)
-			)
 			.sessionManagement(
 				sessionManagement -> sessionManagement.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
 			.authorizeHttpRequests(authorizeRequests -> authorizeRequests

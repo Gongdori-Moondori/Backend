@@ -271,7 +271,7 @@ public class PriceDataService {
 	}
 	
 	/**
-	 * marketName과 itemName으로 가격 데이터 조회
+	 * marketName과 itemName으로 가격 데이터 조회 (0원 제외 - Repository에서 처리)
 	 */
 	public List<PriceDataResponse> getPriceData(String marketName, String itemName) {
 		List<PriceData> priceDataList;
@@ -290,6 +290,7 @@ public class PriceDataService {
 			return new ArrayList<>();
 		}
 		
+		log.info("가격 데이터 조회 결과: {} 건 (0원 제외)", priceDataList.size());
 		return PriceDataResponse.fromList(priceDataList);
 	}
 }

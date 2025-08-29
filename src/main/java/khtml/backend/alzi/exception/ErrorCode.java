@@ -46,7 +46,11 @@ public enum ErrorCode {
 	DATA_INTEGRITY_VIOLATION(HttpStatus.CONFLICT, "DB002", "데이터 무결성 제약 조건을 위반했습니다."),
 
 	// General Errors
-	SERVICE_UNAVAILABLE(HttpStatus.SERVICE_UNAVAILABLE, "GEN002", "서비스를 사용할 수 없습니다.");
+	SERVICE_UNAVAILABLE(HttpStatus.SERVICE_UNAVAILABLE, "GEN002", "서비스를 사용할 수 없습니다."),
+
+	// Item Errors
+	ITEM_NOT_FOUND(HttpStatus.NOT_FOUND, "ITEM001", "아이템을 찾을 수 없습니다."),
+	ITEM_PRICE_NOT_FOUND(HttpStatus.NOT_FOUND, "ITEM002", "아이템 가격 정보를 찾을 수 없습니다.");
 
 	private final HttpStatus status;
 	private final String code;

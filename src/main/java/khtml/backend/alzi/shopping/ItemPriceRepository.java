@@ -53,11 +53,31 @@ public interface ItemPriceRepository extends JpaRepository<ItemPrice, Long> {
     // 특정 아이템, 시장, 날짜로 가격 정보 조회 (API 업데이트용)
     Optional<ItemPrice> findByItemAndMarketAndSurveyDate(Item item, Market market, LocalDate surveyDate);
     
-    // 아이템명으로 모든 가격 정보 조회 (절약 분석용)
-    @Query("SELECT ip FROM ItemPrice ip WHERE ip.item.name = :itemName")
+    // 아이템명으로 모든 가격 정보 조회 (절약 분석용, 0원 제외)
+    @Query("SELECT ip FROM ItemPrice ip WHERE ip.item.name = :itemName AND ip.price > 0 ORDER BY ip.surveyDate DESC")
     List<ItemPrice> findAllByItemName(@Param("itemName") String itemName);
     
-    // 특정 마트와 아이템명으로 가격 정보 조회 (시장 vs 마트 비교용)
-    @Query("SELECT ip FROM ItemPrice ip WHERE ip.market.name = :marketName AND ip.item.name = :itemName ORDER BY ip.surveyDate DESC, ip.updatedAt DESC")
+    // 특정 마트와 아이템명으로 가격 정보 조회 (시장 vs 마트 비교용, 0원 제외)
+    @Query("SELECT ip FROM ItemPrice ip WHERE ip.market.name = :marketName AND ip.item.name = :itemName AND ip.price > 0 ORDER BY ip.surveyDate DESC, ip.updatedAt DESC")
     List<ItemPrice> findByMarketNameAndItemName(@Param("marketName") String marketName, @Param("itemName") String itemName);
+    
+    // 특정 아이템의 모든 시장 가격 정보 조회 (0원 제외)
+    @Query("SELECT ip FROM ItemPrice ip WHERE ip.item = :item AND ip.price > 0 ORDER BY ip.price ASC")
+    List<ItemPrice> findByItemExcludingZeroPrice(@Param("item") Item item);
+    
+    // 특정 시장의 모든 아이템 가격 정보 조회 (0원 제외)
+    @Query("SELECT ip FROM ItemPrice ip WHERE ip.market = :market AND ip.price > 0 ORDER BY ip.item.name ASC")
+    List<ItemPrice> findByMarketExcludingZeroPrice(@Param("market") Market market);
+    
+    // 특정 아이템의 평균 가격 계산 (0원 제외)
+    @Query("SELECT AVG(ip.price) FROM ItemPrice ip WHERE ip.item = :item AND ip.price > 0")
+    Double findAveragePriceByItemExcludingZero(@Param("item") Item item);
+    
+    // 특정 아이템의 최저 가격 조회 (0원 제외)
+    @Query("SELECT MIN(ip.price) FROM ItemPrice ip WHERE ip.item = :item AND ip.price > 0")
+    BigDecimal findMinPriceByItemExcludingZero(@Param("item") Item item);
+    
+    // 특정 아이템의 최고 가격 조회 (0원 제외)
+    @Query("SELECT MAX(ip.price) FROM ItemPrice ip WHERE ip.item = :item AND ip.price > 0")
+    BigDecimal findMaxPriceByItemExcludingZero(@Param("item") Item item);
 }

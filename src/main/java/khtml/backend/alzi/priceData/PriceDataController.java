@@ -66,7 +66,7 @@ public class PriceDataController {
 	}
 
 	@GetMapping("/data")
-	@Operation(summary = "가격 데이터 조회", description = "마켓명과 아이템명으로 가격 데이터를 조회합니다. 둘 중 하나만 입력해도 조회 가능합니다.")
+	@Operation(summary = "가격 데이터 조회 (0원 제외)", description = "마켓명과 아이템명으로 가격 데이터를 조회합니다. 둘 중 하나만 입력해도 조회 가능하며, 0원인 가격 데이터는 자동으로 제외됩니다.")
 	public ApiResponse<List<PriceDataResponse>> getPriceData(
 			@Parameter(description = "마켓명 (선택사항)")
 			@RequestParam(required = false) String marketName,
@@ -80,7 +80,7 @@ public class PriceDataController {
 			
 			List<PriceDataResponse> priceData = priceDataService.getPriceData(marketName, itemName);
 			
-			String message = String.format("가격 데이터 조회 성공 (%d건)", priceData.size());
+			String message = String.format("가격 데이터 조회 성공 (%d건, 0원 제외)", priceData.size());
 			if (marketName != null && itemName != null) {
 				message += String.format(" - 마켓: %s, 아이템: %s", marketName, itemName);
 			} else if (marketName != null) {
