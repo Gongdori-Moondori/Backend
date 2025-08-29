@@ -42,6 +42,8 @@ public class SecurityConfig {
 	public SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
 		http
 			.cors(cors -> cors.configurationSource(corsConfigurationSource()))  // CORS 설정 추가
+			.csrf(csrf -> csrf.disable())  // CSRF 보호 비활성화 (JWT 사용으로 불필요)
+			.headers(headers -> headers.frameOptions().disable())  // H2 Console을 위한 iframe 허용
 			.sessionManagement(
 				sessionManagement -> sessionManagement.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
 			.authorizeHttpRequests(authorizeRequests -> authorizeRequests
