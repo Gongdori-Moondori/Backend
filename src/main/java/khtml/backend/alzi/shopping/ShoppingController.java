@@ -2,6 +2,7 @@ package khtml.backend.alzi.shopping;
 
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
 
 import org.springframework.http.ResponseEntity;
@@ -18,6 +19,7 @@ import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import khtml.backend.alzi.auth.user.User;
+import khtml.backend.alzi.shopping.dto.AddItemToCartRequest;
 import khtml.backend.alzi.shopping.dto.CompleteItemsRequest;
 import khtml.backend.alzi.shopping.dto.CreateShoppingListRequest;
 import khtml.backend.alzi.shopping.dto.ShoppingListResponse;
@@ -260,6 +262,69 @@ public class ShoppingController {
 			log.error("절약 통계 조회 중 오류 발생", e);
 			return ResponseEntity.badRequest()
 				.body(ApiResponse.failure("SAVINGS_STATS_FAILED", "절약 통계 조회 중 오류가 발생했습니다: " + e.getMessage()));
+		}
+	}
+
+	@PostMapping("/add-item")
+	@Operation(
+		summary = "현재 장바구니에 아이템 추가", 
+		description = "현재 열려있는 장바구니에 아이템을 추가합니다. " +
+					 "열린 장바구니가 없으면 새로 생성하고, 이미 있는 아이템이면 수량을 추가합니다."
+	)
+	public ResponseEntity<ApiResponse<ShoppingService.AddItemToCartResponse>> addItemToCurrentCart(
+			@Valid @RequestBody AddItemToCartRequest request) {
+
+		User user = SecurityUtils.getCurrentUser();
+		log.info("현재 장바구니에 아이템 추가 - 사용자: {}, 아이템: {}, 수량: {}", 
+			user.getUserId(), request.getItemName(), request.getQuantity());
+
+		try {
+			ShoppingService.AddItemToCartResponse response = shoppingService.addItemToCurrentCart(
+				user, 
+				request.getItemName(),
+				request.getQuantity(),
+				request.getCategory(),
+				request.getMemo()
+			);
+
+			if (response.isSuccess()) {
+				return ResponseEntity.ok(ApiResponse.success(response.getMessage(), response));
+			} else {
+				return ResponseEntity.badRequest()
+					.body(ApiResponse.failure("ADD_ITEM_FAILED", response.getMessage()));
+			}
+
+		} catch (Exception e) {
+			log.error("장바구니 아이템 추가 중 오류 발생", e);
+			return ResponseEntity.badRequest()
+				.body(ApiResponse.failure("ADD_ITEM_FAILED", "아이템 추가 중 오류가 발생했습니다: " + e.getMessage()));
+		}
+	}
+
+	@GetMapping("/current")
+	@Operation(
+		summary = "현재 열린 장바구니 조회", 
+		description = "현재 열려있는 장바구니 정보를 조회합니다. (PLANNED 또는 IN_PROGRESS 상태)"
+	)
+	public ResponseEntity<ApiResponse<ShoppingListResponse>> getCurrentShoppingList() {
+
+		User user = SecurityUtils.getCurrentUser();
+		log.info("현재 열린 장바구니 조회 - 사용자: {}", user.getUserId());
+
+		try {
+			Optional<ShoppingList> currentCartOpt = shoppingService.getCurrentOpenShoppingList(user);
+			
+			if (currentCartOpt.isPresent()) {
+				ShoppingListResponse response = ShoppingListResponse.from(currentCartOpt.get());
+				return ResponseEntity.ok(ApiResponse.success("현재 열린 장바구니를 조회했습니다.", response));
+			} else {
+				return ResponseEntity.ok(ApiResponse.success("현재 열린 장바구니가 없습니다.", null));
+			}
+
+		} catch (Exception e) {
+			log.error("현재 장바구니 조회 중 오류 발생", e);
+			return ResponseEntity.badRequest()
+				.body(ApiResponse.failure("CURRENT_CART_FAILED", "현재 장바구니 조회 중 오류가 발생했습니다: " + e.getMessage()));
 		}
 	}
 }

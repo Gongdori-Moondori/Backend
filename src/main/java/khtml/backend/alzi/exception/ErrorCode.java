@@ -50,7 +50,11 @@ public enum ErrorCode {
 
 	// Item Errors
 	ITEM_NOT_FOUND(HttpStatus.NOT_FOUND, "ITEM001", "아이템을 찾을 수 없습니다."),
-	ITEM_PRICE_NOT_FOUND(HttpStatus.NOT_FOUND, "ITEM002", "아이템 가격 정보를 찾을 수 없습니다.");
+	ITEM_PRICE_NOT_FOUND(HttpStatus.NOT_FOUND, "ITEM002", "아이템 가격 정보를 찾을 수 없습니다."),
+	
+	// Favorite Errors
+	NOT_FOUND(HttpStatus.NOT_FOUND, "FAV001", "리소스를 찾을 수 없습니다."),
+	DUPLICATE_RESOURCE(HttpStatus.CONFLICT, "FAV002", "중복된 리소스입니다.");
 
 	private final HttpStatus status;
 	private final String code;

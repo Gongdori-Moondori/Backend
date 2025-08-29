@@ -22,4 +22,7 @@ public interface ShoppingListRepository extends JpaRepository<ShoppingList, Long
     
     // 사용자별 상태별 장보기 리스트 조회
     List<ShoppingList> findByUserAndStatusOrderByCreatedAtDesc(User user, ShoppingList.ShoppingListStatus status);
+    
+    // 사용자별 여러 상태 장보기 리스트 조회
+    List<ShoppingList> findByUserAndStatusInOrderByCreatedAtDesc(User user, List<ShoppingList.ShoppingListStatus> statuses);
 }

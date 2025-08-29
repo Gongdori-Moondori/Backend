@@ -70,4 +70,7 @@ public interface ShoppingRecordRepository extends JpaRepository<ShoppingRecord, 
            "AND sr.status = 'PURCHASED' " +
            "ORDER BY sr.purchasedAt DESC")
     List<ShoppingRecord> findPurchasedRecordsByUser(@Param("userId") String userId);
+    
+    // 특정 장바구니와 아이템으로 ShoppingRecord 조회
+    List<ShoppingRecord> findByShoppingListAndItem(ShoppingList shoppingList, Item item);
 }

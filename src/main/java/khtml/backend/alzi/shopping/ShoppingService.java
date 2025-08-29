@@ -637,6 +637,154 @@ public class ShoppingService {
 		return savingsService.getUserSavingsStats(user);
 	}
 
+	/**
+	 * 현재 열려있는 장바구니 찾기 (PLANNED 또는 IN_PROGRESS 상태)
+	 */
+	@Transactional(readOnly = true)
+	public Optional<ShoppingList> getCurrentOpenShoppingList(User user) {
+		List<ShoppingList> openLists = shoppingListRepository.findByUserAndStatusInOrderByCreatedAtDesc(
+			user, 
+			List.of(ShoppingList.ShoppingListStatus.PLANNED, ShoppingList.ShoppingListStatus.IN_PROGRESS)
+		);
+		
+		return openLists.isEmpty() ? Optional.empty() : Optional.of(openLists.get(0));
+	}
+
+	/**
+	 * 현재 열려있는 장바구니에 아이템 추가 (없으면 새로 생성)
+	 */
+	@Transactional
+	public AddItemToCartResponse addItemToCurrentCart(User user, String itemName, Integer quantity, 
+	                                                   String category, String memo) {
+		log.info("현재 장바구니에 아이템 추가 - 사용자: {}, 아이템: {}, 수량: {}", 
+			user.getUserId(), itemName, quantity);
+
+		try {
+			// 1. 현재 열려있는 장바구니 찾기
+			Optional<ShoppingList> currentCartOpt = getCurrentOpenShoppingList(user);
+			ShoppingList shoppingList;
+			boolean newCartCreated = false;
+
+			if (currentCartOpt.isPresent()) {
+				shoppingList = currentCartOpt.get();
+				log.info("기존 열린 장바구니 사용 - ID: {}", shoppingList.getId());
+			} else {
+				// 열린 장바구니가 없으면 새로 생성
+				shoppingList = ShoppingList.builder()
+					.user(user)
+					.build();
+				shoppingList = shoppingListRepository.save(shoppingList);
+				newCartCreated = true;
+				log.info("새 장바구니 생성 - ID: {}", shoppingList.getId());
+			}
+
+			// 2. 아이템 찾기 또는 생성
+			Item item = findOrCreateItem(itemName, category);
+
+			// 3. 기존에 같은 아이템이 장바구니에 있는지 확인
+			Optional<ShoppingRecord> existingRecord = shoppingRecordRepository
+				.findByShoppingListAndItem(shoppingList, item)
+				.stream()
+				.filter(record -> record.getStatus() == ShoppingRecord.PurchaseStatus.PLANNED)
+				.findFirst();
+
+			ShoppingRecord shoppingRecord;
+			boolean itemUpdated = false;
+
+			if (existingRecord.isPresent()) {
+				// 기존 아이템 수량 업데이트
+				shoppingRecord = existingRecord.get();
+				int newQuantity = shoppingRecord.getQuantity() + quantity;
+				shoppingRecord.setQuantity(newQuantity);
+				
+				// 가격 재계산
+				BigDecimal unitPrice = getItemPrice(item);
+				shoppingRecord.updatePrice(unitPrice);
+				
+				shoppingRecordRepository.save(shoppingRecord);
+				itemUpdated = true;
+				
+				log.info("기존 아이템 수량 업데이트 - 아이템: {}, 기존: {}개 → 새로운: {}개", 
+					itemName, shoppingRecord.getQuantity() - quantity, newQuantity);
+			} else {
+				// 새 아이템 추가
+				BigDecimal unitPrice = getItemPrice(item);
+				
+				shoppingRecord = ShoppingRecord.builder()
+					.shoppingList(shoppingList)
+					.item(item)
+					.quantity(quantity)
+					.unitPrice(unitPrice)
+					.build();
+				
+				shoppingRecordRepository.save(shoppingRecord);
+				log.info("새 아이템 추가 - 아이템: {}, 수량: {}개, 단가: {}원", 
+					itemName, quantity, unitPrice);
+			}
+
+			// 4. 장바구니 상태 업데이트 (아이템이 있으면 IN_PROGRESS)
+			if (shoppingList.getStatus() == ShoppingList.ShoppingListStatus.PLANNED) {
+				shoppingList.updateStatus(ShoppingList.ShoppingListStatus.IN_PROGRESS);
+				shoppingListRepository.save(shoppingList);
+			}
+
+			return AddItemToCartResponse.builder()
+				.success(true)
+				.shoppingListId(shoppingList.getId())
+				.itemName(itemName)
+				.quantity(shoppingRecord.getQuantity())
+				.unitPrice(shoppingRecord.getUnitPrice())
+				.totalPrice(shoppingRecord.getPrice())
+				.newCartCreated(newCartCreated)
+				.itemUpdated(itemUpdated)
+				.message(buildAddItemMessage(itemName, quantity, itemUpdated, newCartCreated))
+				.build();
+
+		} catch (Exception e) {
+			log.error("장바구니에 아이템 추가 실패: {}", e.getMessage(), e);
+			return AddItemToCartResponse.builder()
+				.success(false)
+				.message("아이템 추가 중 오류가 발생했습니다: " + e.getMessage())
+				.build();
+		}
+	}
+
+	/**
+	 * 아이템 추가 결과 메시지 생성
+	 */
+	private String buildAddItemMessage(String itemName, Integer addedQuantity, 
+	                                   boolean itemUpdated, boolean newCartCreated) {
+		StringBuilder message = new StringBuilder();
+		
+		if (newCartCreated) {
+			message.append("새 장바구니를 생성하고 ");
+		}
+		
+		if (itemUpdated) {
+			message.append(String.format("'%s' %d개를 기존 수량에 추가했습니다", itemName, addedQuantity));
+		} else {
+			message.append(String.format("'%s' %d개를 장바구니에 추가했습니다", itemName, addedQuantity));
+		}
+		
+		return message.toString();
+	}
+
+	// === 새로운 DTO 클래스 ===
+	
+	@lombok.Data
+	@lombok.Builder
+	public static class AddItemToCartResponse {
+		private boolean success;
+		private Long shoppingListId;
+		private String itemName;
+		private Integer quantity;        // 현재 총 수량
+		private BigDecimal unitPrice;
+		private BigDecimal totalPrice;   // 해당 아이템의 총 가격
+		private boolean newCartCreated;  // 새 장바구니 생성 여부
+		private boolean itemUpdated;     // 기존 아이템 수량 업데이트 여부
+		private String message;
+	}
+
 	// DTO 클래스들
 	@lombok.Data
 	@lombok.Builder
