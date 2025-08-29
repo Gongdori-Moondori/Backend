@@ -297,7 +297,7 @@ public class ShoppingController {
 					 "열린 장바구니가 없으면 새로 생성하고, 이미 있는 아이템이면 수량을 추가합니다."
 	)
 	public ResponseEntity<ApiResponse<ShoppingService.AddItemToCartResponse>> addItemToCurrentCart(
-			@Valid @RequestBody AddItemToCartRequest request) {
+			@RequestBody AddItemToCartRequest request) {
 
 		User user = SecurityUtils.getCurrentUser();
 		log.info("현재 장바구니에 아이템 추가 - 사용자: {}, 아이템: {}, 수량: {}", 
