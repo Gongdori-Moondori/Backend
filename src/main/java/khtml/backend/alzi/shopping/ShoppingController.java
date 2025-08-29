@@ -147,7 +147,8 @@ public class ShoppingController {
 			shoppingListId, user.getUserId(), request.getItemIds().size());
 
 		try {
-			ShoppingListResponse response = shoppingService.completeShoppingItems(shoppingListId, request.getItemIds(), user);
+			ShoppingListResponse response = shoppingService.completeShoppingItems(
+				shoppingListId, request.getItemIds(), user, request.getItemMarkets());
 			return ResponseEntity.ok(ApiResponse.success("선택한 아이템들이 구매 완료로 처리되었습니다.", response));
 		} catch (IllegalArgumentException e) {
 			return ResponseEntity.badRequest()
@@ -234,6 +235,31 @@ public class ShoppingController {
 			log.error("자주 구매한 상품 조회 중 오류 발생", e);
 			return ResponseEntity.badRequest()
 				.body(ApiResponse.failure("FREQUENT_ITEMS_FAILED", "자주 구매한 상품 조회 중 오류가 발생했습니다: " + e.getMessage()));
+		}
+	}
+
+	@GetMapping("/savings/statistics")
+	@Operation(
+		summary = "사용자 절약 통계 조회", 
+		description = "사용자의 총 절약 금액, 절약 횟수, 아이템별/시장별 절약 현황 등을 조회합니다."
+	)
+	public ResponseEntity<ApiResponse<SavingsService.UserSavingsStats>> getSavingsStatistics() {
+
+		User user = SecurityUtils.getCurrentUser();
+		log.info("사용자 {} 절약 통계 조회", user.getUserId());
+
+		try {
+			SavingsService.UserSavingsStats stats = shoppingService.getSavingsStatistics(user);
+			
+			String message = String.format("총 %d회 구매로 %d원 절약하셨습니다!", 
+				stats.getTotalSavingsCount(), stats.getTotalSavings().intValue());
+			
+			return ResponseEntity.ok(ApiResponse.success(message, stats));
+
+		} catch (Exception e) {
+			log.error("절약 통계 조회 중 오류 발생", e);
+			return ResponseEntity.badRequest()
+				.body(ApiResponse.failure("SAVINGS_STATS_FAILED", "절약 통계 조회 중 오류가 발생했습니다: " + e.getMessage()));
 		}
 	}
 }

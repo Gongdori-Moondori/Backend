@@ -33,6 +33,8 @@ public class ShoppingService {
 	private final PriceDataRepository priceDataRepository;
 	private final ItemCategoryUtil itemCategoryUtil;
 	private final SeasonalRecommendationUtil seasonalRecommendationUtil;
+	private final SavingsService savingsService; // 절약 금액 계산 서비스 추가
+	private final khtml.backend.alzi.market.MarketRepository marketRepository; // 시장 Repository 추가
 
 	@Transactional
 	public ShoppingListResponse createShoppingList(CreateShoppingListRequest request, User user) {
@@ -279,6 +281,14 @@ public class ShoppingService {
 	 */
 	@Transactional
 	public ShoppingListResponse completeShoppingItems(Long shoppingListId, List<Long> itemIds, User user) {
+		return completeShoppingItems(shoppingListId, itemIds, user, null);
+	}
+
+	/**
+	 * 장바구니 아이템들을 구매 완료 상태로 변경 (절약 금액 계산 포함)
+	 */
+	@Transactional
+	public ShoppingListResponse completeShoppingItems(Long shoppingListId, List<Long> itemIds, User user, Map<Long, String> itemMarkets) {
 		log.info("장바구니 {} 아이템 구매 완료 처리 시작 - 아이템 ID: {}", shoppingListId, itemIds);
 
 		// 장바구니 조회 및 권한 확인
@@ -287,6 +297,9 @@ public class ShoppingService {
 
 		// 아이템 ID들 검증 및 상태 변경
 		int updatedCount = 0;
+		int savingsCalculatedCount = 0;
+		BigDecimal totalSavings = BigDecimal.ZERO;
+
 		for (Long itemId : itemIds) {
 			Optional<ShoppingRecord> recordOpt = shoppingRecordRepository
 				.findByIdAndShoppingListAndUser(itemId, shoppingList, user);
@@ -300,9 +313,45 @@ public class ShoppingService {
 					continue;
 				}
 				
+				// 시장 정보 업데이트 (있는 경우)
+				if (itemMarkets != null && itemMarkets.containsKey(itemId)) {
+					String marketName = itemMarkets.get(itemId);
+					Optional<khtml.backend.alzi.market.Market> marketOpt = marketRepository.findByName(marketName);
+					if (marketOpt.isPresent()) {
+						record.updateMarket(marketOpt.get());
+						log.info("아이템 ID {} 구매 시장 설정 - {}", itemId, marketName);
+					} else {
+						log.warn("시장 '{}' 정보를 찾을 수 없습니다", marketName);
+					}
+				}
+				
+				// 구매 완료 처리
 				record.markAsPurchased();
 				shoppingRecordRepository.save(record);
 				updatedCount++;
+				
+				// 절약 금액 계산 및 저장
+				try {
+					SavingsService.SavingsCalculationResult savingsResult = 
+						savingsService.calculateAndSaveSavings(record, user);
+					
+					if (savingsResult.isSuccess()) {
+						savingsCalculatedCount++;
+						BigDecimal savingsAmount = savingsResult.getSavingsRecord().getSavingsAmount();
+						totalSavings = totalSavings.add(savingsAmount);
+						
+						log.info("아이템 '{}'의 절약 금액 계산 완료 - {}원 ({}와 비교)", 
+							record.getItem().getName(), 
+							savingsAmount,
+							savingsResult.getComparisonResult().getComparisonType());
+					} else {
+						log.info("아이템 '{}'의 절약 금액 계산 실패 - {}", 
+							record.getItem().getName(), savingsResult.getMessage());
+					}
+				} catch (Exception e) {
+					log.error("아이템 '{}'의 절약 금액 계산 중 오류 발생: {}", 
+						record.getItem().getName(), e.getMessage(), e);
+				}
 				
 				log.info("아이템 구매 완료 처리 - 아이템 ID: {}, 아이템명: {}", itemId, record.getItem().getName());
 			} else {
@@ -310,7 +359,8 @@ public class ShoppingService {
 			}
 		}
 
-		log.info("장바구니 {} 아이템 구매 완료 처리 완료 - 총 {}개 처리", shoppingListId, updatedCount);
+		log.info("장바구니 {} 아이템 구매 완료 처리 완료 - 총 {}개 처리, 절약금액 계산 {}개, 총 절약: {}원", 
+			shoppingListId, updatedCount, savingsCalculatedCount, totalSavings);
 
 		// 업데이트된 장바구니 정보 반환
 		ShoppingList updatedShoppingList = shoppingListRepository.findByIdAndUser(shoppingListId, user)
@@ -576,6 +626,15 @@ public class ShoppingService {
 		}
 
 		return recommendation.toString();
+	}
+
+	/**
+	 * 사용자 절약 통계 조회
+	 */
+	@Transactional(readOnly = true)
+	public SavingsService.UserSavingsStats getSavingsStatistics(User user) {
+		log.info("사용자 {} 절약 통계 조회", user.getUserId());
+		return savingsService.getUserSavingsStats(user);
 	}
 
 	// DTO 클래스들

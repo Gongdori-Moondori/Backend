@@ -33,6 +33,10 @@ public class ShoppingRecord {
 	@JoinColumn(name = "item_id", nullable = false)
 	private Item item; // 구매한 물품
 
+	@ManyToOne(fetch = FetchType.LAZY)
+	@JoinColumn(name = "market_id")
+	private khtml.backend.alzi.market.Market market; // 구매한 시장 (새로 추가)
+
 	@Column(nullable = false)
 	private Integer quantity; // 수량
 
@@ -53,11 +57,12 @@ public class ShoppingRecord {
 	private LocalDateTime purchasedAt; // 실제 구매한 시간
 
 	@Builder
-	public ShoppingRecord(ShoppingList shoppingList, Item item, Integer quantity, BigDecimal unitPrice) {
+	public ShoppingRecord(ShoppingList shoppingList, Item item, Integer quantity, BigDecimal unitPrice, khtml.backend.alzi.market.Market market) {
 		this.shoppingList = shoppingList;
 		this.item = item;
 		this.quantity = quantity;
 		this.unitPrice = unitPrice;
+		this.market = market;
 		this.price = unitPrice != null ? unitPrice.multiply(BigDecimal.valueOf(quantity)) : null;
 		this.status = PurchaseStatus.PLANNED;
 		this.createdAt = LocalDateTime.now();
@@ -75,6 +80,10 @@ public class ShoppingRecord {
 	public void updatePrice(BigDecimal unitPrice) {
 		this.unitPrice = unitPrice;
 		this.price = unitPrice != null ? unitPrice.multiply(BigDecimal.valueOf(quantity)) : null;
+	}
+	
+	public void updateMarket(khtml.backend.alzi.market.Market market) {
+		this.market = market;
 	}
 
 	public enum PurchaseStatus {
