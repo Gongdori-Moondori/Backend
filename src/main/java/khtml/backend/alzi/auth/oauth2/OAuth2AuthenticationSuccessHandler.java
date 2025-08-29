@@ -26,7 +26,7 @@ public class OAuth2AuthenticationSuccessHandler implements AuthenticationSuccess
 	private final UserRepository userRepository;
 
 	// 프론트엔드 URL (환경에 따라 설정)
-	@Value("${app.oauth2.authorized-redirect-uri:http://localhost:3000/oauth2/redirect}")
+	@Value("${app.oauth2.authorized-redirect-uri:https://gongdori-moondori-fe.vercel.app/oauth2/redirect}")
 	private String redirectUri;
 
 	@Override
