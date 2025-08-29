@@ -41,4 +41,16 @@ public interface ItemRepository extends JpaRepository<Item, Long> {
            "AND sl.user.userId = :userId " +
            "AND sr.status = 'PURCHASED'")
     Long countPurchasesByUserAndItem(@Param("userId") String userId, @Param("itemId") Long itemId);
+    
+    // 카테고리별 아이템 개수 통계
+    @Query("SELECT i.category, COUNT(i) FROM Item i WHERE i.category IS NOT NULL GROUP BY i.category ORDER BY COUNT(i) DESC")
+    List<Object[]> getCategoryItemCounts();
+    
+    // 특정 카테고리의 아이템 목록 (이름순)
+    @Query("SELECT i.name FROM Item i WHERE i.category = :category ORDER BY i.name")
+    List<String> findItemNamesByCategory(@Param("category") String category);
+    
+    // 전체 아이템 개수
+    @Query("SELECT COUNT(i) FROM Item i WHERE i.category IS NOT NULL")
+    Long getTotalItemCount();
 }

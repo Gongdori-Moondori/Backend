@@ -17,6 +17,7 @@ import khtml.backend.alzi.auth.user.User;
 import khtml.backend.alzi.priceData.PriceDataRepository;
 import khtml.backend.alzi.shopping.dto.CreateShoppingListRequest;
 import khtml.backend.alzi.shopping.dto.ShoppingListResponse;
+import khtml.backend.alzi.shopping.dto.CategoryStatsResponse;
 import khtml.backend.alzi.utils.ItemCategoryUtil;
 import khtml.backend.alzi.utils.SeasonalRecommendationUtil;
 import lombok.RequiredArgsConstructor;
@@ -635,6 +636,54 @@ public class ShoppingService {
 	public SavingsService.UserSavingsStats getSavingsStatistics(User user) {
 		log.info("사용자 {} 절약 통계 조회", user.getUserId());
 		return savingsService.getUserSavingsStats(user);
+	}
+
+	/**
+	 * 카테고리별 아이템 통계 조회
+	 */
+	@Transactional(readOnly = true)
+	public CategoryStatsResponse getCategoryStats() {
+		log.info("카테고리별 아이템 통계 조회");
+		
+		// 1. 카테고리별 아이템 개수 조회
+		List<Object[]> categoryCountsData = itemRepository.getCategoryItemCounts();
+		
+		// 2. 전체 아이템 개수
+		Long totalItems = itemRepository.getTotalItemCount();
+		
+		// 3. 각 카테고리별 상세 정보 생성
+		List<CategoryStatsResponse.CategoryInfo> categories = categoryCountsData.stream()
+			.map(row -> {
+				String categoryName = (String) row[0];
+				Long itemCount = (Long) row[1];
+				
+				// 비율 계산
+				double percentage = totalItems > 0 ? 
+					(double) itemCount / totalItems * 100 : 0.0;
+				
+				// 해당 카테고리의 상위 5개 아이템
+				List<String> topItems = itemRepository.findItemNamesByCategory(categoryName)
+					.stream()
+					.limit(5)
+					.collect(Collectors.toList());
+				
+				return CategoryStatsResponse.CategoryInfo.builder()
+					.categoryName(categoryName)
+					.itemCount(itemCount)
+					.percentage(Math.round(percentage * 10) / 10.0) // 소수점 첫째 자리까지
+					.topItems(topItems)
+					.build();
+			})
+			.collect(Collectors.toList());
+		
+		log.info("카테고리별 통계 조회 완료 - 총 {}개 카테고리, {}개 아이템", 
+			categories.size(), totalItems);
+		
+		return CategoryStatsResponse.builder()
+			.categories(categories)
+			.totalCategories(categories.size())
+			.totalItems(totalItems != null ? totalItems : 0L)
+			.build();
 	}
 
 	/**

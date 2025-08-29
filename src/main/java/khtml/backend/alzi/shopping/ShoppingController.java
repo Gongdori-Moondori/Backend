@@ -23,6 +23,7 @@ import khtml.backend.alzi.shopping.dto.AddItemToCartRequest;
 import khtml.backend.alzi.shopping.dto.CompleteItemsRequest;
 import khtml.backend.alzi.shopping.dto.CreateShoppingListRequest;
 import khtml.backend.alzi.shopping.dto.ShoppingListResponse;
+import khtml.backend.alzi.shopping.dto.CategoryStatsResponse;
 import khtml.backend.alzi.utils.ApiResponse;
 import khtml.backend.alzi.utils.ItemCategoryUtil;
 import khtml.backend.alzi.utils.SecurityUtils;
@@ -121,6 +122,29 @@ public class ShoppingController {
 	public ResponseEntity<ApiResponse<Set<String>>> getAllCategories() {
 		Set<String> categories = ItemCategoryUtil.getAllCategories();
 		return ResponseEntity.ok(ApiResponse.success("카테고리 목록을 성공적으로 조회했습니다.", categories));
+	}
+
+	@GetMapping("/categories/stats")
+	@Operation(
+		summary = "카테고리별 통계 조회", 
+		description = "카테고리별 아이템 개수, 비율, 상위 아이템 목록 등의 통계 정보를 조회합니다."
+	)
+	public ResponseEntity<ApiResponse<CategoryStatsResponse>> getCategoryStats() {
+		log.info("카테고리별 통계 조회 요청");
+		
+		try {
+			CategoryStatsResponse stats = shoppingService.getCategoryStats();
+			
+			String message = String.format("총 %d개 카테고리, %d개 아이템의 통계를 조회했습니다.", 
+				stats.getTotalCategories(), stats.getTotalItems());
+			
+			return ResponseEntity.ok(ApiResponse.success(message, stats));
+			
+		} catch (Exception e) {
+			log.error("카테고리 통계 조회 중 오류 발생", e);
+			return ResponseEntity.badRequest()
+				.body(ApiResponse.failure("CATEGORY_STATS_FAILED", "카테고리 통계 조회 중 오류가 발생했습니다: " + e.getMessage()));
+		}
 	}
 	
 	@GetMapping("/categories/{category}/items")
